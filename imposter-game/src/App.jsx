@@ -10,6 +10,7 @@ import RevealRolesScreen from "./screens/RevealRolesScreen.jsx";
 import PlayScreen from "./screens/PlayScreen.jsx";
 import RevealResultScreen from "./screens/RevealResultScreen.jsx";
 import HowToPlayScreen from "./screens/HowToPlayScreen.jsx";
+import ShareGameScreen from "./screens/ShareGameScreen.jsx";
 
 
 function App() {
@@ -66,6 +67,7 @@ function App() {
           onPlay={() => setScreen("setup")}
           onManage={() => setScreen("manage")}
           onHowToPlay={() => setScreen("rules")}
+          onShare={() => setScreen("share")}
         />
       )}
 
@@ -112,6 +114,10 @@ function App() {
       
       {screen === "rules" && (
         <HowToPlayScreen onBack={() => setScreen("home")} />
+      )}
+
+      {screen === "share" && (
+        <ShareGameScreen onBack={() => setScreen("home")} />
       )}
 
     </div>
