@@ -17,6 +17,7 @@ function App() {
   const [screen, setScreen] = useState("home");
   const [categories, setCategories] = useState(() => loadCategories());
   const [currentGame, setCurrentGame] = useState(null);
+  const [lastImposters, setLastImposters] = useState([]);
 
   const updateCategories = (next) => {
     setCategories(next);
@@ -26,10 +27,11 @@ function App() {
   const handleStartGame = ({ playerCount, imposterCount, categoryId, playerNames }) => {
     try {
       const game = createLocalGame(
-        { playerCount, imposterCount, categoryId, playerNames },
+        { playerCount, imposterCount, categoryId, playerNames, lastImposters },
         categories
       );
       setCurrentGame(game);
+      setLastImposters(game.imposters)
       setScreen("reveal");
     } catch (err) {
       alert(err.message);

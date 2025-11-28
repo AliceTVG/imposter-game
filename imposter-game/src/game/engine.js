@@ -25,7 +25,7 @@ function shuffled(arr) {
  */
 // src/game/engine.js
 export function createLocalGame(options, categories) {
-  const { playerCount, imposterCount, categoryId, playerNames } = options;
+  const { playerCount, imposterCount, categoryId, playerNames, lastImposters } = options;
 
   const category = categories.find((c) => c.id === categoryId);
   if (!category) throw new Error("Category not found");
@@ -36,8 +36,8 @@ export function createLocalGame(options, categories) {
   const word = randomChoice(category.words);
 
   const players = Array.from({ length: playerCount }, (_, i) => i + 1);
-  const shuffledPlayers = shuffled(players);
-  const imposters = shuffledPlayers.slice(0, imposterCount);
+
+  const imposters = chooseImposters(playerCount, imposterCount, lastImposters);
 
   const defaultNames = players.map((n) => `Player ${n}`);
   const finalNames =
@@ -60,6 +60,29 @@ export function createLocalGame(options, categories) {
   return game;
 }
 
+function chooseImposters(playerCount, numImposters, lastImposters = []) {
+  const allPlayers = Array.from({ length: playerCount }, (_, i) => i + 1);
+
+  const recentSet = new Set(lastImposters)
+  const nonRecent = allPlayers.filter((p) => !recentSet.has(p));
+  const recent = allPlayers.filter((p) => recentSet.has(p));
+
+  const result = [];
+
+  const shuffledNonRecent = shuffled(nonRecent);
+  for (let i = 0; i < shuffledNonRecent.length && result.length < numImposters; i++) {
+    result.push(shuffledNonRecent[i]);
+  }
+
+  if (result.length < numImposters) {
+    const shuffledRecent = shuffled(recent);
+    for (let i = 0; i < shuffledRecent.length && result.length < numImposters; i++) {
+      result.push(shuffledRecent[i]);
+    }
+  }
+
+  return result;
+}
 
 /**
  * Check if a given player is an imposter
