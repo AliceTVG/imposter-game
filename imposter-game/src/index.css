@@ -354,7 +354,6 @@ select:focus {
   word-break: break-all;
 }
 
-
 .home-header {
   display: flex;
   justify-content: space-between;
@@ -397,4 +396,12 @@ select:focus {
   margin-top: 0.75rem;
   display: flex;
   justify-content: flex-start;
+}
+
+.screen-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 1.5rem; /* ⬅ adds equal left/right safe padding */
+  box-sizing: border-box;
 }

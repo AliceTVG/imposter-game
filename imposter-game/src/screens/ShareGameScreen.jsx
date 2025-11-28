@@ -5,7 +5,7 @@ export default function ShareGameScreen({ onBack }) {
   const shareUrl = window.location.origin;
 
   return (
-    <div>
+    <div className="screen-container">
       <button className="btn-text screen-header-left" onClick={onBack}>
         ← Back
       </button>
