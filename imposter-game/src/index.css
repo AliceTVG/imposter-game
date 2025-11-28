@@ -402,6 +402,5 @@ select:focus {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 1.5rem; /* ⬅ adds equal left/right safe padding */
   box-sizing: border-box;
 }
