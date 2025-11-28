@@ -1,4 +1,4 @@
-export default function HomeScreen({ onPlay, onManage }) {
+export default function HomeScreen({ onPlay, onManage, onHowToPlay }) {
   return (
     <div>
       <h1>Imposter Game</h1>
@@ -18,6 +18,9 @@ export default function HomeScreen({ onPlay, onManage }) {
           </button>
         </div>
       </div>
+      <button className="btn-text mt" onClick={onHowToPlay}>
+        How to play
+      </button>
     </div>
   );
 }

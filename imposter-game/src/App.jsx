@@ -9,6 +9,8 @@ import ManageCategoriesScreen from "./screens/ManageCategoriesScreen.jsx";
 import RevealRolesScreen from "./screens/RevealRolesScreen.jsx";
 import PlayScreen from "./screens/PlayScreen.jsx";
 import RevealResultScreen from "./screens/RevealResultScreen.jsx";
+import HowToPlayScreen from "./screens/HowToPlayScreen.jsx";
+
 
 function App() {
   const [screen, setScreen] = useState("home");
@@ -63,6 +65,7 @@ function App() {
         <HomeScreen
           onPlay={() => setScreen("setup")}
           onManage={() => setScreen("manage")}
+          onHowToPlay={() => setScreen("rules")}
         />
       )}
 
@@ -106,6 +109,10 @@ function App() {
             onReplay={handleReplay}
           />
         )}
+      
+      {screen === "rules" && (
+        <HowToPlayScreen onBack={() => setScreen("home")} />
+      )}
 
     </div>
   );
