@@ -61,7 +61,7 @@ function App() {
   };
 
   return (
-    <div className="app" style={{ maxWidth: 480, margin: "0 auto", padding: 16 }}>
+    <div className="app" >
       {screen === "home" && (
         <HomeScreen
           onPlay={() => setScreen("setup")}

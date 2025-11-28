@@ -3,7 +3,7 @@
 export default function HowToPlayScreen({ onBack }) {
   return (
     <div className="screen-container">
-      <button className="btn-text" onClick={onBack}>
+      <button className="btn-text screen-header-left" onClick={onBack}>
         ← Back
       </button>
 

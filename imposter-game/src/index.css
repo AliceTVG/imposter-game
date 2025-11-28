@@ -8,6 +8,7 @@ body {
   margin: 0;
 }
 
+/* Main app wrapper – handles centering and safe-area padding */
 .app {
   min-height: 100vh;
   display: flex;
@@ -17,17 +18,31 @@ body {
   box-sizing: border-box;
 }
 
+/* Inner content column – fixed max width, no extra padding */
 .app > div {
   width: 100%;
-  max-width: 480px;
-  padding: 1.5rem;
+  max-width: 400px;
 }
+
+/* For full-width vertical screens like HowToPlay / ShareGame */
+.screen-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: left;
+}
+
+.screen-container > h1,
+.screen-container .screen-header-left {
+  align-self: flex-start;
+}
+
 
 /* Typography, cards, fields – as before */
 .card {
   background: rgba(15, 23, 42, 0.9);
   border-radius: 20px;
-  padding: 1.25rem;
+  padding: 1rem;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(148, 163, 184, 0.2);
   margin-top: 1rem;
@@ -240,7 +255,7 @@ select:focus {
 /* Keep cards from stretching too wide when centered */
 .card-narrow {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
 }
 
 @media (max-width: 400px) {
@@ -396,11 +411,4 @@ select:focus {
   margin-top: 0.75rem;
   display: flex;
   justify-content: flex-start;
-}
-
-.screen-container {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  box-sizing: border-box;
 }
