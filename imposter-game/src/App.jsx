@@ -11,6 +11,9 @@ import PlayScreen from "./screens/PlayScreen.jsx";
 import RevealResultScreen from "./screens/RevealResultScreen.jsx";
 import HowToPlayScreen from "./screens/HowToPlayScreen.jsx";
 import ShareGameScreen from "./screens/ShareGameScreen.jsx";
+import MultiJoinScreen from "./screens/MultiJoinScreen.jsx";
+import MultiHostScreen from "./screens/MultiHostScreen.jsx";
+import MultiModeScreen from "./screens/MultiModeScreen.jsx";
 
 
 function App() {
@@ -18,6 +21,7 @@ function App() {
   const [categories, setCategories] = useState(() => loadCategories());
   const [currentGame, setCurrentGame] = useState(null);
   const [lastImposters, setLastImposters] = useState([]);
+  const [multiSubscreen, setMultiSubscreen] = useState("menu")
 
   const updateCategories = (next) => {
     setCategories(next);
@@ -70,6 +74,10 @@ function App() {
           onManage={() => setScreen("manage")}
           onHowToPlay={() => setScreen("rules")}
           onShare={() => setScreen("share")}
+          onPlayMulti={() => {
+            setMultiSubscreen("menu");
+            setScreen("multi");
+          }}
         />
       )}
 
@@ -120,6 +128,26 @@ function App() {
 
       {screen === "share" && (
         <ShareGameScreen onBack={() => setScreen("home")} />
+      )}
+
+      {screen === "multi" && (
+        multiSubscreen === "menu" ? (
+          <MultiModeScreen
+            onBack={() => setScreen("home")}
+            onHost={() => setMultiSubscreen("host")}
+            onJoin={() => setMultiSubscreen("join")}
+          />
+        ) : multiSubscreen === "host" ? (
+          <MultiHostScreen
+            categories={categories}
+            onBack={() => setMultiSubscreen("menu")}
+          />
+        ) : (
+          <MultiJoinScreen
+            categories={categories}
+            onBack={() => setMultiSubscreen("menu")}
+          />
+        )
       )}
 
     </div>

@@ -5,6 +5,7 @@ export default function HomeScreen({
   onManage,
   onHowToPlay,
   onShare,
+  onPlayMulti,
 }) {
   return (
     <div>
@@ -12,7 +13,7 @@ export default function HomeScreen({
         <div className="home-title-group">
           <h1>Imposter Game</h1>
           <p className="home-subtitle">
-            A secret word party game for one device.
+            A secret word party game.
           </p>
         </div>
 
@@ -41,16 +42,21 @@ export default function HomeScreen({
         </button>
       </div>
 
-      <div className="card" style={{ marginTop: "1.25rem" }}>
-        <p style={{ marginTop: 0 }}>
-          Choose a category, give everyone a name, and let one of you bluff your
-          way through the clues.
+      <div className="card home-main-card">
+        <p className="home-tagline">
+          Choose a category, give everyone a name, and let one of you bluff your way through the clues.
         </p>
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+
+        <div className="home-button-column">
           <button className="btn-primary" onClick={onPlay}>
-            Play
+            Play on this device
           </button>
-          <button className="btn-secondary" onClick={onManage}>
+
+          <button className="btn-secondary" onClick={onPlayMulti}>
+            Multi-device (in person)
+          </button>
+
+          <button className="btn-outline" onClick={onManage}>
             Manage Categories
           </button>
         </div>
