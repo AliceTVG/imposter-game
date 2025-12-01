@@ -1,5 +1,13 @@
 import { supabase } from "./supabaseClient";
 
+function ensureSupabase() {
+  if (!supabase) {
+    throw new Error(
+      "Supabase is not configured. Multi-device mode is unavailable."
+    );
+  }
+}
+
 function generateGameCode(length = 6) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let result = "";
@@ -11,6 +19,7 @@ function generateGameCode(length = 6) {
 
 // Create a new game lobby with a unique code
 export async function createGameLobby({ categoryId }) {
+  ensureSupabase();
   let attempts = 0;
 
   while (attempts < 5) {
