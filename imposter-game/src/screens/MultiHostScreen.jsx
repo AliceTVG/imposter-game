@@ -228,27 +228,17 @@ export default function MultiHostScreen({ categories, onBack }) {
         <div className="card card-narrow mt-lg form-card">
           <div className="form-group">
             <label className="label">Category</label>
-            <div className="category-picker">
-              <button
-                className="btn-text"
-                onClick={() =>
-                  setCategoryIndex(
-                    (categoryIndex + categories.length - 1) % categories.length
-                  )
-                }
-              >
-                ◀
-              </button>
-              <span className="category-name">{selectedCategory.name}</span>
-              <button
-                className="btn-text"
-                onClick={() =>
-                  setCategoryIndex((categoryIndex + 1) % categories.length)
-                }
-              >
-                ▶
-              </button>
-            </div>
+            <select
+                className="input-text"
+                value={categoryIndex}
+                onChange={(e) => setCategoryIndex(Number(e.target.value))}
+            >
+                {categories.map((cat, idx) => (
+                    <option key={cat.id} value={idx}>
+                        {cat.name}
+                    </option>
+                ))}
+            </select>
           </div>
 
           <div className="form-group">
