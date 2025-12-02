@@ -35,6 +35,8 @@ export default function MultiHostScreen({ categories, onBack }) {
   const [starting, setStarting] = useState(false);
   const [revealing, setRevealing] = useState(false);
 
+  const [forceSingleImposter, setForceSingleImposter] = useState(false);
+
   const selectedCategory = categories[categoryIndex];
 
   const resetAll = () => {
@@ -76,6 +78,9 @@ export default function MultiHostScreen({ categories, onBack }) {
     try {
       const createdGame = await createGameLobby({
         categoryId: selectedCategory.id,
+        categoryName: selectedCategory.name,
+        categoryWords: selectedCategory.words,
+        forceSingleImposter,
       });
 
       const { game, player } = await joinGame({
@@ -151,10 +156,18 @@ export default function MultiHostScreen({ categories, onBack }) {
 
           const readyPlayers = players.filter((p) => p.ready_for_next_round);
 
+          const categoryFromGame = {
+            id: freshGame.category_id,
+            name: freshGame.category_name,
+            words: freshGame.category_words,
+          }
+
           const outcome = computeMultiDeviceOutcome({
             code: freshGame.code,
             players: readyPlayers,
-            category: selectedCategory,
+            category: categoryFromGame,
+            minImposters: 1,
+            maxImposters: freshGame.force_single_imposter ? 1 : undefined,
             roundKey: freshGame.started_at,
           });
 
@@ -249,6 +262,20 @@ export default function MultiHostScreen({ categories, onBack }) {
               onChange={(e) => setHostName(e.target.value)}
               placeholder="e.g. Alice"
             />
+          </div>
+          <div className="form-group">
+            <label className="label">Imposter settings</label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                    type="checkbox"
+                    checked={forceSingleImposter}
+                    onChange={(e) => setForceSingleImposter(e.target.checked)}
+                />
+                <span>Only 1 imposter?</span>
+            </div>
+            <p className="hint" style={{ marginTop: "0.35rem" }}>
+                If unchecked, the game will auto-pick roughly 25% of players as imposters.
+            </p>
           </div>
 
           <button

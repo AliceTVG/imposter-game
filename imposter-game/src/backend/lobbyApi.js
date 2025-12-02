@@ -18,7 +18,12 @@ function generateGameCode(length = 6) {
 }
 
 // Create a new game lobby with a unique code
-export async function createGameLobby({ categoryId }) {
+export async function createGameLobby({ 
+    categoryId,
+    categoryName,
+    categoryWords,
+    forceSingleImposter = false,
+}) {
   ensureSupabase();
   let attempts = 0;
 
@@ -29,6 +34,9 @@ export async function createGameLobby({ categoryId }) {
       .insert({
         code,
         category_id: categoryId,
+        category_name: categoryName,
+        category_words: categoryWords,
+        force_single_imposter: forceSingleImposter,
         started_at: null,
         revealed_at: null,
         host_player_id: null,

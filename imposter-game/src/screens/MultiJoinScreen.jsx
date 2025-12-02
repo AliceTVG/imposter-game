@@ -72,7 +72,17 @@ export default function MultiJoinScreen({ categories, onBack }) {
 
       const { players } = await fetchLobbyByCode(trimmedCode);
 
-      const cat = categories.find((c) => c.id === game.category_id);
+      const localCat = categories.find((c) => c.id === game.category_id);
+      const categoryFromGame =
+        game.category_name && Array.isArray(game.category_words)
+            ? {
+                id: game.category_id,
+                name: game.category_name,
+                words: game.category_words,
+            }
+            : null;
+
+      const cat = localCat || categoryFromGame;
       if (!cat) {
         alert("This game uses a category that does not exist on this device.");
         setLoading(false);
@@ -119,6 +129,8 @@ export default function MultiJoinScreen({ categories, onBack }) {
             code: joinedGame.code,
             players: readyPlayers,
             category,
+            minImposters: 1,
+            maxImposters: joinedGame.force_single_imposter ? 1 : undefined,
             roundKey: game.started_at
           });
 
