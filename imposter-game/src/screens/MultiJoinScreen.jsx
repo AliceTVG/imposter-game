@@ -5,8 +5,10 @@ import {
   computeMultiDeviceRoleForPlayer,
 } from "../game/multiDeviceEngine";
 
-export default function MultiJoinScreen({ categories, onBack }) {
-  const [code, setCode] = useState("");
+export default function MultiJoinScreen({ categories, onBack, initialCode }) {
+  const [code, setCode] = useState(
+    initialCode ? initialCode.toUpperCase() : ""
+  );
   const [name, setName] = useState("");
 
   // form | waiting | role | play | result
@@ -24,6 +26,8 @@ export default function MultiJoinScreen({ categories, onBack }) {
   const [revealedAtSeen, setRevealedAtSeen] = useState(null);
 
   const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState("")
 
   const iAmHost =
     joinedGame && player && joinedGame.host_player_id === player.id;
@@ -59,7 +63,7 @@ export default function MultiJoinScreen({ categories, onBack }) {
     const trimmedName = name.trim();
 
     if (!trimmedCode || !trimmedName) {
-      alert("Please enter a game code and your name.");
+      setError("Please enter a game code and your name.");
       return;
     }
 
@@ -84,7 +88,7 @@ export default function MultiJoinScreen({ categories, onBack }) {
 
       const cat = localCat || categoryFromGame;
       if (!cat) {
-        alert("This game uses a category that does not exist on this device.");
+        setError("This game uses a category that does not exist on this device.");
         setLoading(false);
         return;
       }
@@ -98,7 +102,7 @@ export default function MultiJoinScreen({ categories, onBack }) {
       setPhase("waiting");
     } catch (e) {
       console.error(e);
-      alert(
+      setError(
         "Could not join game. Make sure the host has created it and you typed the code correctly."
       );
     } finally {
@@ -252,7 +256,7 @@ export default function MultiJoinScreen({ categories, onBack }) {
                             await startGame(joinedGame.code);
                         } catch (e) {
                             console.error(e);
-                            alert("Could not start game. Please try again.");
+                            setError("Could not start game. Please try again.");
                         }
                     }}
                     disabled={!canStart}
@@ -352,7 +356,7 @@ export default function MultiJoinScreen({ categories, onBack }) {
                         await revealGame(joinedGame.code);
                     } catch (e) {
                         console.error(e);
-                        alert("Could not reveal result. Please try again.");
+                        setError("Could not reveal result. Please try again.");
                     }
                 }}
             >
@@ -449,6 +453,21 @@ export default function MultiJoinScreen({ categories, onBack }) {
       </button>
 
       <h1>Join Game</h1>
+
+      {error && (
+        <div className="alert alert-error">
+            <span className="alert-icon">⚠️</span>
+            <span>{error}</span>
+            <button
+            type="button"
+            className="alert-close"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+            >
+            ×
+            </button>
+        </div>
+        )}
 
       <div className="card card-narrow mt-lg form-card">
         <div className="form-group">

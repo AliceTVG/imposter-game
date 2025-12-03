@@ -14,6 +14,7 @@ import {
   computeMultiDeviceOutcome,
   computeMultiDeviceRoleForPlayer,
 } from "../game/multiDeviceEngine";
+import QRCode from "react-qr-code";
 
 export default function MultiHostScreen({ categories, onBack }) {
   // setup | lobby | role | play | result
@@ -36,6 +37,9 @@ export default function MultiHostScreen({ categories, onBack }) {
   const [revealing, setRevealing] = useState(false);
 
   const [forceSingleImposter, setForceSingleImposter] = useState(false);
+
+  const [error, setError] = useState("");
+
 
   const selectedCategory = categories[categoryIndex];
 
@@ -70,7 +74,7 @@ export default function MultiHostScreen({ categories, onBack }) {
   const handleCreate = async () => {
     const trimmedName = hostName.trim();
     if (!trimmedName) {
-      alert("Please enter your name to host a game.");
+      setError("Please enter your name to host a game.");
       return;
     }
 
@@ -100,7 +104,7 @@ export default function MultiHostScreen({ categories, onBack }) {
       setPhase("lobby");
     } catch (e) {
       console.error(e);
-      alert(
+      setError(
         `Could not create game: ${
             e?.message || e?.error_description || "Unknown error"
         }`
@@ -118,7 +122,7 @@ export default function MultiHostScreen({ categories, onBack }) {
       // started_at will be picked up by the lobby polling effect
     } catch (e) {
       console.error(e);
-      alert("Could not start game. Please try again.");
+      setError("Could not start game. Please try again.");
     } finally {
       setStarting(false);
     }
@@ -132,7 +136,7 @@ export default function MultiHostScreen({ categories, onBack }) {
       // revealed_at will be picked up by the play polling effect
     } catch (e) {
       console.error(e);
-      alert("Could not reveal result. Please try again.");
+      setError("Could not reveal result. Please try again.");
     } finally {
       setRevealing(false);
     }
@@ -238,6 +242,22 @@ export default function MultiHostScreen({ categories, onBack }) {
 
         <h1>Host Game</h1>
 
+        {error && (
+        <div className="alert alert-error">
+            <span className="alert-icon">⚠️</span>
+            <span>{error}</span>
+            <button
+            type="button"
+            className="alert-close"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+            >
+            ×
+            </button>
+        </div>
+        )}
+
+
         <div className="card card-narrow mt-lg form-card">
           <div className="form-group">
             <label className="label">Category</label>
@@ -294,6 +314,8 @@ export default function MultiHostScreen({ categories, onBack }) {
   if (phase === "lobby" && game && selectedCategory) {
     const readyPlayers = players.filter((p) => p.ready_for_next_round);
     const canStart = readyPlayers.length >= 3;
+    const origin = window.location.origin;
+    const joinUrl = `${origin}/?join=${game.code}`;
     return (
       <div className="screen-centered">
         <button
@@ -326,6 +348,22 @@ export default function MultiHostScreen({ categories, onBack }) {
             Ask everyone to open <strong>Multi-device → Join with a code</strong>{" "}
             and enter this code and their name.
           </p>
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: "0.9rem", marginBottom: "0.5rem" }}>
+                Or let players scan this to join:
+            </p>
+            <div className="qr-wrapper">
+                <QRCode
+                    value={joinUrl}
+                    size={180}
+                    bgColor="transparent"
+                    fgColor="#f9fafb"
+                />
+            </div>
+            <p className="qr-url" style={{ marginTop: "0.5rem" }}>
+                {joinUrl.replace(/^https?:\/\//, "")}
+            </p>
+          </div>
 
           {players.length > 0 && (
             <>

@@ -17,11 +17,23 @@ import MultiModeScreen from "./screens/MultiModeScreen.jsx";
 
 
 function App() {
-  const [screen, setScreen] = useState("home");
+  const initialJoinCode = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const j = params.get("join");
+      return j ? j.toUpperCase() : "";
+    } catch {
+      return "";
+    }
+  })();
+  const [screen, setScreen] = useState(initialJoinCode ? "multi" : "home");
   const [categories, setCategories] = useState(() => loadCategories());
   const [currentGame, setCurrentGame] = useState(null);
   const [lastImposters, setLastImposters] = useState([]);
-  const [multiSubscreen, setMultiSubscreen] = useState("menu")
+  const [multiSubscreen, setMultiSubscreen] = useState(
+    initialJoinCode ? "join" : "menu"
+  );
+  const [pendingJoinCode] = useState(initialJoinCode);
 
   const updateCategories = (next) => {
     setCategories(next);
@@ -146,6 +158,7 @@ function App() {
           <MultiJoinScreen
             categories={categories}
             onBack={() => setMultiSubscreen("menu")}
+            initialCode={pendingJoinCode}
           />
         )
       )}

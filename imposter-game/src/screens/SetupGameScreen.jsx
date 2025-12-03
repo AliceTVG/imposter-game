@@ -4,7 +4,7 @@ import { useState } from "react";
 export default function SetupGameScreen({ categories, onBack, onStart }) {
   const [playerCount, setPlayerCount] = useState(4);
   const [playerCountInput, setPlayerCountInput] = useState("4");
-  const [imposterCount, setImposterCount] = useState(1);
+  const [imposterCountInput, setImposterCountInput] = useState("1");
   const [categoryId, setCategoryId] = useState(
     categories[0] ? categories[0].id : ""
   );
@@ -15,11 +15,20 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
     "Player 4",
   ]);
 
+  const [error, setError] = useState("")
+
   const clampCount = (value) => {
     let n = parseInt(value, 10);
     if (isNaN(n)) n = 3;
     if (n < 3) n = 3;
     if (n > 12) n = 12;
+    return n;
+  };
+
+  const clampImposters = (value) => {
+    let n = parseInt(value, 10);
+    if (isNaN(n)) n = 1;
+    if (n > 3) n = 3;
     return n;
   };
 
@@ -44,6 +53,11 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
     resizeNames(n);
   };
 
+  const handleImposterBlur = () => {
+    const n = clampImposters(imposterCountInput);
+    setImposterCountInput(String(n));
+  };
+
   const handleNameChange = (index, value) => {
     setPlayerNames((prev) => {
       const next = [...prev];
@@ -56,14 +70,14 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
     e.preventDefault();
 
     const finalPlayerCount = clampCount(playerCountInput);
-    const finalImposters = imposterCount; // validated below
+    const finalImposters = clampImposters(imposterCountInput); // validated below
 
     if (!categoryId) {
-      alert("Please select a category");
+      setError("Please select a category");
       return;
     }
     if (finalImposters >= finalPlayerCount) {
-      alert("Imposters must be fewer than total players");
+      setError("Imposters must be fewer than total players");
       return;
     }
 
@@ -79,6 +93,8 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
     setPlayerCountInput(String(finalPlayerCount));
     resizeNames(finalPlayerCount);
 
+    setImposterCountInput(String(finalImposters));
+
     onStart({
       playerCount: finalPlayerCount,
       imposterCount: Number(finalImposters),
@@ -93,6 +109,21 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
         ← Back
       </button>
       <h2>Game Setup</h2>
+
+      {error && (
+        <div className="alert alert-error">
+          <span className="alert-icon">⚠️</span>
+          <span>{error}</span>
+          <button
+            type="button"
+            className="alert-close"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="card">
         <label className="field">
@@ -113,8 +144,9 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
             type="number"
             min={1}
             max={3}
-            value={imposterCount}
-            onChange={(e) => setImposterCount(Number(e.target.value))}
+            value={imposterCountInput}
+            onChange={(e) => setImposterCountInput(e.target.value)}
+            onBlur={handleImposterBlur}
           />
         </label>
 
