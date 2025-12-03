@@ -514,9 +514,14 @@ select {
   font-size: 16px;                /* avoids auto-zoom weirdness */
   -webkit-user-select: text;
   -webkit-touch-callout: default;
+  pointer-events: auto !important; 
+  touch-action: manipulation !important;  
 }
 
-
+label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 
 .alert {
   width: 100%;
