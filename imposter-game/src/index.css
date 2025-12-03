@@ -12,8 +12,6 @@ body {
 .app {
   min-height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
   padding: calc(1.5rem + env(safe-area-inset-top)) 1.5rem 1.5rem;
   box-sizing: border-box;
 }
@@ -497,45 +495,27 @@ select:focus {
   border-bottom: none;
 }
 
-/* --- iOS PWA / standalone focus fixes --- */
+/* --- Minimal iOS PWA input / layout fixes --- */
 
-/* Make sure the viewport actually fills the screen */
 html,
 body {
   height: 100%;
 }
 
 body {
-  min-height: 100%;
+  margin: 0;
+  -webkit-text-size-adjust: 100%;
 }
 
-@supports (-webkit-touch-callout: none) {
-  html,
-  body {
-    height: -webkit-fill-available;
-  }
-
-  .app {
-    min-height: -webkit-fill-available;
-  }
-
-  input,
-  textarea,
-  select {
-    -webkit-user-select: auto;
-    -webkit-touch-callout: default;
-    touch-action: manipulation;
-  }
-
-  .screen-centered,
-  .screen-container,
-  .card,
-  .form-card,
-  .names-section {
-    transform: none !important;
-    perspective: none !important;
-  }
+/* Keep things boring & reliable around form fields */
+input,
+textarea,
+select {
+  font-size: 16px;                /* avoids auto-zoom weirdness */
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
+
 
 
 .alert {
