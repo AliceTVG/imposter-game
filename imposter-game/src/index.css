@@ -497,6 +497,47 @@ select:focus {
   border-bottom: none;
 }
 
+/* --- iOS PWA / standalone focus fixes --- */
+
+/* Make sure the viewport actually fills the screen */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    height: -webkit-fill-available;
+  }
+
+  .app {
+    min-height: -webkit-fill-available;
+  }
+
+  input,
+  textarea,
+  select {
+    -webkit-user-select: auto;
+    -webkit-touch-callout: default;
+    touch-action: manipulation;
+  }
+
+  .screen-centered,
+  .screen-container,
+  .card,
+  .form-card,
+  .names-section {
+    transform: none !important;
+    perspective: none !important;
+  }
+}
+
+
 .alert {
   width: 100%;
   margin-top: 0.75rem;
