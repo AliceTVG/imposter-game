@@ -1,116 +1,119 @@
-import { useEffect, useState } from "react";
-import { joinGame, fetchLobbyByCode, leaveGame, setPlayerReady, startGame, revealGame, } from "../backend/lobbyApi";
+import { useEffect, useMemo, useState } from "react";
+import {
+  joinGame,
+  fetchLobbyByCode,
+  leaveGame,
+  setPlayerReady,
+  startGame,
+  revealGame,
+  touchPlayer,
+} from "../backend/lobbyApi";
 import {
   computeMultiDeviceOutcome,
   computeMultiDeviceRoleForPlayer,
 } from "../game/multiDeviceEngine";
 
-export default function MultiJoinScreen({ categories, onBack, initialCode }) {
-  const [code, setCode] = useState(
-    initialCode ? initialCode.toUpperCase() : ""
-  );
-  const [name, setName] = useState("");
-
-  // form | waiting | role | play | result
+export default function MultiJoinScreen({ categories, onBack, initialCode = "" }) {
+  // form | waiting | role | play | result | kicked
   const [phase, setPhase] = useState("form");
 
-  const [joinedGame, setJoinedGame] = useState(null);
-  const [category, setCategory] = useState(null);
+  const [code, setCode] = useState(initialCode);
+  const [name, setName] = useState("");
 
+  const [joinedGame, setJoinedGame] = useState(null);
   const [player, setPlayer] = useState(null);
   const [players, setPlayers] = useState([]);
 
+  const [category, setCategory] = useState(null);
   const [roleData, setRoleData] = useState(null);
 
   const [startedAtSeen, setStartedAtSeen] = useState(null);
   const [revealedAtSeen, setRevealedAtSeen] = useState(null);
 
-  const [loading, setLoading] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState("");
 
-  const [error, setError] = useState("")
+  const iAmHost = useMemo(() => {
+    if (!joinedGame || !player) return false;
+    return joinedGame.host_player_id === player.id;
+  }, [joinedGame, player]);
 
-  const iAmHost =
-    joinedGame && player && joinedGame.host_player_id === player.id;
-
-  const resetState = () => {
-    setCode("");
-    setName("");
+  const hardResetToMenu = () => {
     setPhase("form");
     setJoinedGame(null);
-    setCategory(null);
     setPlayer(null);
     setPlayers([]);
     setRoleData(null);
+    setCategory(null);
     setStartedAtSeen(null);
     setRevealedAtSeen(null);
+    setError("");
+    onBack();
   };
 
   const leaveCompletely = async () => {
     try {
-      if (player?.id) {
-        await leaveGame(player.id);
-      }
+      if (player?.id) await leaveGame(player.id);
     } catch (e) {
-      console.error("leaveGame failed", e);
+      console.error(e);
     } finally {
-      resetState();
-      onBack();
+      hardResetToMenu();
     }
   };
 
   const handleJoin = async () => {
-    const trimmedCode = code.trim().toUpperCase();
+    const trimmedCode = code.trim();
     const trimmedName = name.trim();
-
     if (!trimmedCode || !trimmedName) {
-      setError("Please enter a game code and your name.");
+      setError("Please enter a code and name.");
       return;
     }
 
-    setLoading(true);
+    setJoining(true);
+    setError("");
+
     try {
       const { game, player } = await joinGame({
         code: trimmedCode,
         name: trimmedName,
       });
 
-      const { players } = await fetchLobbyByCode(trimmedCode);
+      const { players: lobbyPlayers } = await fetchLobbyByCode(game.code);
 
       const localCat = categories.find((c) => c.id === game.category_id);
       const categoryFromGame =
         game.category_name && Array.isArray(game.category_words)
-            ? {
-                id: game.category_id,
-                name: game.category_name,
-                words: game.category_words,
-            }
-            : null;
+          ? { id: game.category_id, name: game.category_name, words: game.category_words }
+          : null;
 
-      const cat = localCat || categoryFromGame;
-      if (!cat) {
-        setError("This game uses a category that does not exist on this device.");
-        setLoading(false);
-        return;
-      }
-
+      setCategory(localCat || categoryFromGame);
       setJoinedGame(game);
-      setCategory(cat);
       setPlayer(player);
-      setPlayers(players);
+      setPlayers(lobbyPlayers);
+
       setStartedAtSeen(game.started_at || null);
       setRevealedAtSeen(game.revealed_at || null);
+
       setPhase("waiting");
     } catch (e) {
       console.error(e);
-      setError(
-        "Could not join game. Make sure the host has created it and you typed the code correctly."
-      );
+      setError(e?.message || "Could not join game.");
     } finally {
-      setLoading(false);
+      setJoining(false);
     }
   };
 
-  // Poll while waiting: update lobby list and move to role when started_at flips
+  const checkKicked = (freshPlayers) => {
+    if (!player?.id) return false;
+    const stillHere = freshPlayers.some((p) => p.id === player.id);
+    if (!stillHere) {
+      setPhase("kicked");
+      return true;
+    }
+    return false;
+  };
+
+  // Waiting poll: lobby updates + started_at => role
   useEffect(() => {
     if (phase !== "waiting" || !joinedGame || !category || !player) return;
 
@@ -124,6 +127,20 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
         setJoinedGame(game);
         setPlayers(players);
 
+        if (checkKicked(players)) return;
+
+        // keep category in sync
+        const localCat = categories.find((c) => c.id === game.category_id);
+        const categoryFromGame =
+          game.category_name && Array.isArray(game.category_words)
+            ? { id: game.category_id, name: game.category_name, words: game.category_words }
+            : null;
+
+        const categoryForRound = localCat || categoryFromGame || category;
+        if (categoryForRound && categoryForRound.id !== category.id) {
+          setCategory(categoryForRound);
+        }
+
         if (game.started_at && game.started_at !== startedAtSeen) {
           setStartedAtSeen(game.started_at);
 
@@ -132,19 +149,15 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
           const outcome = computeMultiDeviceOutcome({
             code: joinedGame.code,
             players: readyPlayers,
-            category,
+            category: categoryForRound,
             minImposters: 1,
-            maxImposters: joinedGame.force_single_imposter ? 1 : undefined,
-            roundKey: game.started_at
+            maxImposters: game.force_single_imposter ? 1 : undefined,
+            roundKey: game.started_at,
           });
 
           const myRole = computeMultiDeviceRoleForPlayer(outcome, player.id);
 
-          setRoleData({
-            ...myRole,
-            imposters: outcome.imposters,
-          });
-
+          setRoleData({ ...myRole, imposters: outcome.imposters });
           setPhase("role");
         }
       } catch (e) {
@@ -158,9 +171,35 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [phase, joinedGame, category, player, startedAtSeen]);
+  }, [phase, joinedGame, category, categories, player, startedAtSeen]);
 
-  // Poll during play: when revealed_at flips, move to result
+  // Heartbeat
+  useEffect(() => {
+    if (!player?.id) return;
+    if (phase === "form" || phase === "kicked") return;
+
+    let cancelled = false;
+
+    const ping = async () => {
+      try {
+        await touchPlayer(player.id);
+      } catch (e) {
+        console.error("touchPlayer failed", e);
+      }
+    };
+
+    ping();
+    const id = setInterval(() => {
+      if (!cancelled) ping();
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [player?.id, phase]);
+
+  // Play poll: reveal => result + kicked detection
   useEffect(() => {
     if (phase !== "play" || !joinedGame) return;
 
@@ -173,6 +212,8 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
 
         setJoinedGame(game);
         setPlayers(players);
+
+        if (checkKicked(players)) return;
 
         if (game.revealed_at && game.revealed_at !== revealedAtSeen) {
           setRevealedAtSeen(game.revealed_at);
@@ -191,87 +232,117 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
     };
   }, [phase, joinedGame, revealedAtSeen]);
 
-  // ----- RENDER PHASES -----
+  // --- RENDER ---
 
-  // Waiting lobby (host-style view but without Start button)
+  if (phase === "kicked") {
+    return (
+      <div className="screen-centered">
+        <h1>Removed from lobby</h1>
+        <div className="card card-narrow">
+          <p>You were removed by the host (or the lobby timed you out).</p>
+          <button className="btn-primary mt-lg" onClick={hardResetToMenu}>
+            Back to menu
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "form") {
+    return (
+      <div className="screen-centered">
+        <button className="btn-text screen-header-left" onClick={onBack}>
+          ← Back
+        </button>
+
+        <h1>Join game</h1>
+
+        {error && (
+          <div className="card" style={{ borderColor: "rgba(248,113,113,0.35)" }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div className="card card-narrow mt-lg">
+          <div className="field">
+            <span>Lobby code</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="e.g. 4Q7K9P"
+            />
+          </div>
+
+          <div className="field">
+            <span>Your name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alice" />
+          </div>
+
+          <button className="btn-primary mt-lg" onClick={handleJoin} disabled={joining}>
+            {joining ? "Joining..." : "Join lobby"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === "waiting" && joinedGame && category) {
     const readyPlayers = players.filter((p) => p.ready_for_next_round);
     const canStart = readyPlayers.length >= 3;
+
     return (
       <div className="screen-centered">
-        <button
-          className="btn-text screen-header-left"
-          onClick={leaveCompletely}
-        >
+        <button className="btn-text screen-header-left" onClick={leaveCompletely}>
           ← Leave lobby
         </button>
 
         <h1>Waiting for host</h1>
 
-        <div className="card card-narrow mt-lg form-card">
-          <label className="label">Game code</label>
-          <p
-            style={{
-              fontSize: "1.8rem",
-              fontWeight: 700,
-              letterSpacing: "0.3em",
-              marginBottom: "0.5rem",
-            }}
-          >
+        <div className="card card-narrow mt-lg">
+          <div className="hint">Game code</div>
+          <div style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.3em" }}>
             {joinedGame.code}
-          </p>
+          </div>
 
-          <p>
+          <p style={{ marginTop: "0.75rem" }}>
             Category: <strong>{category.name}</strong>
-          </p>
-
-          <p style={{ marginTop: "0.5rem" }}>
-            When the host starts the game, your role will appear on this
-            screen.
           </p>
 
           {players.length > 0 && (
             <>
-              <p className="label" style={{ marginTop: "1rem" }}>
-                Players in lobby
-              </p>
-              <ul className="player-list">
+              <div className="hint" style={{ marginTop: "1rem" }}>
+                Players
+              </div>
+              <ul style={{ textAlign: "left" }}>
                 {players.map((p) => (
                   <li key={p.id}>
                     {p.name}
                     {player && p.id === player.id ? " (you)" : ""}
-                    {joinedGame?.host_player_id === p.id ? " (host)" : ""}
+                    {joinedGame.host_player_id === p.id ? " (host)" : ""}
                   </li>
                 ))}
               </ul>
             </>
           )}
 
-          { iAmHost && (
+          {iAmHost && (
             <>
-                <button
-                    className="btn-primary btn-full mt-lg"
-                    onClick={async () => {
-                        try {
-                            await startGame(joinedGame.code);
-                        } catch (e) {
-                            console.error(e);
-                            setError("Could not start game. Please try again.");
-                        }
-                    }}
-                    disabled={!canStart}
-                >
-                    Start Game
-                </button>
-                <p
-                    style={{
-                        marginTop: "0.5rem",
-                        fontSize: "0.9rem",
-                        opacity: "0.8",
-                    }}
-                >
-                    Ready players: {readyPlayers.length} / {players.length}
-                </p>
+              <button
+                className="btn-primary mt-lg"
+                onClick={async () => {
+                  try {
+                    await startGame(joinedGame.code);
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                disabled={!canStart}
+              >
+                Start game (host)
+              </button>
+              <div className="hint" style={{ marginTop: "0.5rem" }}>
+                Ready: {readyPlayers.length} / {players.length}
+              </div>
             </>
           )}
         </div>
@@ -279,45 +350,31 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
     );
   }
 
-  // Role screen
   if (phase === "role" && category && roleData) {
-    const { isImposter, word } = roleData;
-
     return (
       <div className="screen-centered">
-        <button
-          className="btn-text screen-header-left"
-          onClick={leaveCompletely}
-        >
+        <button className="btn-text screen-header-left" onClick={leaveCompletely}>
           ← Leave game
         </button>
 
         <h1>Your role</h1>
 
-        <div className="card card-narrow mt-lg role-card">
-          {isImposter ? (
+        <div className="card card-narrow mt-lg">
+          {roleData.isImposter ? (
             <>
-              <p className="role-label">You are the</p>
-              <p className="role-primary">IMPOSTER</p>
-              <p className="role-sub">
-                Blend in and try to guess the secret word from everyone
-                else&apos;s clues.
-              </p>
+              <div className="hint">You are the</div>
+              <h2 style={{ margin: "0.25rem 0" }}>IMPOSTER</h2>
+              <div className="hint">Try to guess the secret word.</div>
             </>
           ) : (
             <>
-              <p className="role-label">The secret word is:</p>
-              <p className="role-primary">{word}</p>
-              <p className="role-sub">
-                Describe it without giving it away to the imposter.
-              </p>
+              <div className="hint">The secret word is</div>
+              <h2 style={{ margin: "0.25rem 0" }}>{roleData.word}</h2>
+              <div className="hint">Give clues without giving it away.</div>
             </>
           )}
 
-          <button
-            className="btn-primary btn-full mt-lg"
-            onClick={() => setPhase("play")}
-          >
+          <button className="btn-primary mt-lg" onClick={() => setPhase("play")}>
             Continue to discussion
           </button>
         </div>
@@ -325,42 +382,34 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
     );
   }
 
-  // Discussion phase
   if (phase === "play" && category && roleData) {
     return (
       <div className="screen-centered">
-        <button
-          className="btn-text screen-header-left"
-          onClick={leaveCompletely}
-        >
+        <button className="btn-text screen-header-left" onClick={leaveCompletely}>
           ← Leave game
         </button>
 
         <h2>Discussion phase</h2>
 
         <div className="card card-narrow mt-lg">
-          <p>
-            Discuss clues in real life. The host will reveal the answer when
-            everyone has guessed.
-          </p>
-          <p style={{ marginTop: "0.5rem" }}>
-            This screen will update automatically when the host reveals the
-            result.
-          </p>
+          <p>Discuss clues in real life. This screen updates when the host reveals.</p>
+
+          <button className="btn-secondary mt-lg" onClick={() => setPhase("role")}>
+            View my role again
+          </button>
 
           {iAmHost && (
             <button
-                className="btn-primary btn-full mt-lg"
-                onClick={async () => {
-                    try {
-                        await revealGame(joinedGame.code);
-                    } catch (e) {
-                        console.error(e);
-                        setError("Could not reveal result. Please try again.");
-                    }
-                }}
+              className="btn-primary mt"
+              onClick={async () => {
+                try {
+                  await revealGame(joinedGame.code);
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
             >
-                Reveal result for everyone
+              Reveal result (host)
             </button>
           )}
         </div>
@@ -368,136 +417,47 @@ export default function MultiJoinScreen({ categories, onBack, initialCode }) {
     );
   }
 
-  // Result phase
-  if (phase === "result" && category && roleData) {
-    const imposterPlayers = players.filter((p) =>
-      roleData.imposters?.includes(p.id)
-    );
+  if (phase === "result" && category && roleData && joinedGame) {
+    const imposterPlayers = players.filter((p) => roleData.imposters?.includes(p.id));
 
     return (
       <div className="screen-centered">
-        <button
-          className="btn-text screen-header-left"
-          onClick={leaveCompletely}
-        >
-          ← Back to menu
+        <button className="btn-text screen-header-left" onClick={leaveCompletely}>
+          ← Back
         </button>
 
         <h2>Result</h2>
 
         <div className="card card-narrow mt-lg">
           <p>
-            The secret word was{" "}
-            <strong>
-              {roleData.word} ({category.name})
-            </strong>
-            .
+            The secret word was <strong>{roleData.word}</strong>.
           </p>
 
           <h3 style={{ marginTop: "1rem" }}>Imposters</h3>
-          <ul
-            style={{
-              listStyle: "none",
-              paddingLeft: 0,
-              marginTop: "0.5rem",
-              textAlign: "left",
-            }}
-          >
+          <ul style={{ listStyle: "none", paddingLeft: 0, textAlign: "left" }}>
             {imposterPlayers.map((p) => (
               <li key={p.id}>{p.name}</li>
             ))}
           </ul>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-              marginTop: "1.25rem",
+          <button
+            className="btn-primary mt-lg"
+            onClick={async () => {
+              try {
+                if (player?.id) await setPlayerReady(player.id, true);
+              } catch (e) {
+                console.error(e);
+              }
+              setPhase("waiting");
+              setRoleData(null);
             }}
           >
-            <button
-              className="btn-primary btn-full"
-              onClick={async () => {
-                try {
-                    if (player?.id) {
-                        await setPlayerReady(player.id, true);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-                // Stay in the lobby for another round
-                setPhase("waiting");
-                setRoleData(null);
-              }}
-            >
-              Play again with this lobby
-            </button>
-            <button
-              className="btn-secondary btn-full"
-              onClick={leaveCompletely}
-            >
-              Back to multi-device menu
-            </button>
-          </div>
+            Play again
+          </button>
         </div>
       </div>
     );
   }
 
-  // Default: join form
-  return (
-    <div className="screen-centered">
-      <button className="btn-text screen-header-left" onClick={onBack}>
-        ← Back
-      </button>
-
-      <h1>Join Game</h1>
-
-      {error && (
-        <div className="alert alert-error">
-            <span className="alert-icon">⚠️</span>
-            <span>{error}</span>
-            <button
-            type="button"
-            className="alert-close"
-            onClick={() => setError("")}
-            aria-label="Dismiss error"
-            >
-            ×
-            </button>
-        </div>
-        )}
-
-      <div className="card card-narrow mt-lg form-card">
-        <div className="form-group">
-          <label className="label">Game code</label>
-          <input
-            className="input-text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="e.g. AB7QZK"
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="label">Your name</label>
-          <input
-            className="input-text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Alice"
-          />
-        </div>
-
-        <button
-          className="btn-primary btn-full mt-lg"
-          onClick={handleJoin}
-          disabled={loading}
-        >
-          {loading ? "Joining..." : "Join"}
-        </button>
-      </div>
-    </div>
-  );
+  return null;
 }

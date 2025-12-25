@@ -14,7 +14,7 @@ import ShareGameScreen from "./screens/ShareGameScreen.jsx";
 import MultiJoinScreen from "./screens/MultiJoinScreen.jsx";
 import MultiHostScreen from "./screens/MultiHostScreen.jsx";
 import MultiModeScreen from "./screens/MultiModeScreen.jsx";
-
+import MultiHostDisplayScreen from "./screens/MultiHostDisplayScreen.jsx";
 
 function App() {
   const initialJoinCode = (() => {
@@ -26,13 +26,12 @@ function App() {
       return "";
     }
   })();
+
   const [screen, setScreen] = useState(initialJoinCode ? "multi" : "home");
   const [categories, setCategories] = useState(() => loadCategories());
   const [currentGame, setCurrentGame] = useState(null);
   const [lastImposters, setLastImposters] = useState([]);
-  const [multiSubscreen, setMultiSubscreen] = useState(
-    initialJoinCode ? "join" : "menu"
-  );
+  const [multiSubscreen, setMultiSubscreen] = useState(initialJoinCode ? "join" : "menu");
   const [pendingJoinCode] = useState(initialJoinCode);
 
   const updateCategories = (next) => {
@@ -47,7 +46,7 @@ function App() {
         categories
       );
       setCurrentGame(game);
-      setLastImposters(game.imposters)
+      setLastImposters(game.imposters);
       setScreen("reveal");
     } catch (err) {
       alert(err.message);
@@ -79,7 +78,7 @@ function App() {
   };
 
   return (
-    <div className="app" >
+    <div className="app">
       {screen === "home" && (
         <HomeScreen
           onPlay={() => setScreen("setup")}
@@ -88,6 +87,10 @@ function App() {
           onShare={() => setScreen("share")}
           onPlayMulti={() => {
             setMultiSubscreen("menu");
+            setScreen("multi");
+          }}
+          onJoinMulti={() => {
+            setMultiSubscreen("join");
             setScreen("multi");
           }}
         />
@@ -115,59 +118,42 @@ function App() {
           isImposter={isImposter}
           onAllDone={() => setScreen("play")}
           onAbort={handleResetToHome}
-       />
-      )}
-
-
-      {screen === "play" && currentGame && (
-        <PlayScreen
-          onReveal={() => setScreen("result")}
-          onAbort={handleResetToHome}
         />
       )}
 
+      {screen === "play" && currentGame && (
+        <PlayScreen onReveal={() => setScreen("result")} onAbort={handleResetToHome} />
+      )}
+
       {screen === "result" && currentGame && (
-          <RevealResultScreen
-            game={currentGame}
-            onHome={handleResetToHome}
-            onReplay={handleReplay}
-          />
-        )}
-      
-      {screen === "rules" && (
-        <HowToPlayScreen onBack={() => setScreen("home")} />
+        <RevealResultScreen game={currentGame} onHome={handleResetToHome} onReplay={handleReplay} />
       )}
 
-      {screen === "share" && (
-        <ShareGameScreen onBack={() => setScreen("home")} />
-      )}
+      {screen === "rules" && <HowToPlayScreen onBack={() => setScreen("home")} />}
 
-      {screen === "multi" && (
-        multiSubscreen === "menu" ? (
+      {screen === "share" && <ShareGameScreen onBack={() => setScreen("home")} />}
+
+      {screen === "multi" &&
+        (multiSubscreen === "menu" ? (
           <MultiModeScreen
             onBack={() => setScreen("home")}
             onHost={() => setMultiSubscreen("host")}
+            onHostDisplay={() => setMultiSubscreen("hostDisplay")}
             onJoin={() => setMultiSubscreen("join")}
           />
         ) : multiSubscreen === "host" ? (
-          <MultiHostScreen
-            categories={categories}
-            onBack={() => setMultiSubscreen("menu")}
-          />
+          <MultiHostScreen categories={categories} onBack={() => setMultiSubscreen("menu")} />
+        ) : multiSubscreen === "hostDisplay" ? (
+          <MultiHostDisplayScreen categories={categories} onBack={() => setMultiSubscreen("menu")} />
         ) : (
           <MultiJoinScreen
             categories={categories}
-            onBack={() => setMultiSubscreen("menu")}
+            onBack={() => setScreen("home")}
             initialCode={pendingJoinCode}
           />
-        )
-      )}
-
+        ))}
     </div>
   );
-
-
-  
-};
+}
 
 export default App;

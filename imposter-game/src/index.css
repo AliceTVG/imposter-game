@@ -4,26 +4,93 @@
   color: #f9fafb;
 }
 
-body {
-  margin: 0;
-}
-
-/* Main app wrapper – handles centering and safe-area padding */
-.app {
-  min-height: 100vh;
-  display: flex;
-  padding: calc(1.5rem + env(safe-area-inset-top)) 1.5rem 1.5rem;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-/* Inner content column – fixed max width, no extra padding */
-.app > div {
-  width: 100%;
-  max-width: 400px;
+/* --- Minimal iOS PWA input / layout fixes --- */
+html,
+body {
+  height: 100%;
 }
 
-/* For full-width vertical screens like HowToPlay / ShareGame */
+body {
+  margin: 0;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Keep things boring & reliable around form fields (iOS home-screen mode) */
+input,
+textarea,
+select {
+  font-size: 16px; /* avoids auto-zoom weirdness on iOS */
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+}
+
+/* Labels are often the tap target */
+label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* -----------------------------
+   Main app wrapper
+------------------------------ */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: calc(1.5rem + env(safe-area-inset-top)) 1.5rem 1.5rem;
+}
+
+/* Every screen component root should be full-width,
+   and THEN it can choose its own max-width via classes. */
+.app > * {
+  width: 100%;
+}
+
+/* -----------------------------
+   Screen layout helpers
+------------------------------ */
+
+.screen-centered {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Wide-but-not-TV layouts (e.g. host lobby on phone/tablet/desktop) */
+.screen-wide {
+  max-width: 980px;
+}
+
+/* (kept from your current file) */
+.screen-container-without-restrictions {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* For back/abort buttons that should stay on the left */
+.screen-header-left {
+  align-self: flex-start;
+}
+
+/* Full-width vertical screens like HowToPlay / ShareGame */
 .screen-container {
+  width: 100%;
+  max-width: 760px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -35,9 +102,116 @@ body {
   align-self: flex-start;
 }
 
+/* -----------------------------
+   Multi-device host lobby layout
+------------------------------ */
 
-/* Typography, cards, fields – as before */
+.host-lobby-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .host-lobby-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.host-code {
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  text-align: center;
+  margin: 0.4rem 0 0.9rem;
+}
+
+/* cleaner player list used in host lobby */
+.player-list-clean {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* -----------------------------
+   TV / Laptop Host Display Layout
+------------------------------ */
+
+.screen-tv {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.tv-lobby-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .tv-lobby-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tv-code {
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  text-align: center;
+  margin: 0.4rem 0 0.9rem;
+}
+
+.tv-section-title {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  text-align: left;
+  margin-bottom: 0.2rem;
+}
+
+.tv-action-row {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.player-list-tv {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+/* Shared pill styling */
+.player-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+
+/* -----------------------------
+   Cards / forms / typography
+------------------------------ */
+
 .card {
+  width: 100%;
   background: rgba(15, 23, 42, 0.9);
   border-radius: 20px;
   padding: 1rem;
@@ -55,6 +229,11 @@ body {
   margin-top: 0.75rem;
 }
 
+.card-narrow {
+  width: 100%;
+  max-width: 400px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -67,9 +246,33 @@ body {
   color: #9ca3af;
 }
 
+/* inline field (input + button on same row) */
+.field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-inline input {
+  flex: 1;
+}
+
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 /* Inputs & selects themed to match */
 input,
 select {
+  width: 100%;
   border-radius: 0.5rem;
   border: 1px solid #4b5563;
   padding: 0.5rem 0.75rem;
@@ -79,7 +282,7 @@ select {
   font-size: 0.95rem;
 }
 
-/* Hide number spinners (they look very default-browser-y) */
+/* Hide number spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -89,17 +292,20 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Focus state */
 input:focus,
 select:focus {
   border-color: #38bdf8;
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.4);
 }
 
-/* Buttons */
+/* -----------------------------
+   Buttons (base)
+------------------------------ */
+
 .btn-primary,
 .btn-secondary,
-.btn-text {
+.btn-text,
+.btn-outline {
   border-radius: 999px;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -134,94 +340,22 @@ select:focus {
   color: #e5e7eb;
 }
 
-.mt {
-  margin-top: 0.75rem;
+/* Outline variant (restored) */
+.btn-outline {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: #fff;
+  padding: 0.8rem 1.6rem;
 }
 
-.mt-lg {
-  margin-top: 1.25rem;
+/* Full width helper (keeps your working inline-flex version) */
+.btn-full {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
 }
 
-/* Role card */
-.role-card {
-  margin-top: 1rem;
-  padding: 1rem 1.25rem;
-  border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px dashed rgba(148, 163, 184, 0.5);
-}
-
-.secret-word {
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.hint {
-  font-size: 0.85rem;
-  color: #9ca3af;
-}
-
-/* Player name chips on the reveal screen */
-.player-chip {
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: rgba(15, 23, 42, 0.9);
-  color: #e5e7eb;
-  padding: 0.35rem 0.8rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.player-chip-active {
-  border-color: #22d3ee;
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5);
-}
-
-.player-chip-done {
-  background: rgba(15, 23, 42, 0.7);
-  color: #6b7280;
-  border-style: dashed;
-  cursor: default;
-}
-
-/* inline field (input + button on same row) */
-.field-inline {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.field-inline input {
-  flex: 1;
-}
-
-/* word list styling */
-.word-list {
-  list-style: none;
-  padding-left: 0;
-  margin: 0.5rem 0 1rem;
-}
-
-.word-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-}
-
-.word-row span {
-  font-size: 0.95rem;
-}
-
-.word-empty {
-  color: #6b7280;
-  font-size: 0.9rem;
-  padding: 0.5rem 0;
-}
-
-/* small icon-style button */
+/* small icon-style button (restored) */
 .btn-icon {
   border-radius: 999px;
   border: 1px solid #4b5563;
@@ -237,30 +371,18 @@ select:focus {
   color: #fed7aa;
 }
 
-/* Generic centered screen layout */
-.screen-centered {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+/* spacing utils */
+.mt {
+  margin-top: 0.75rem;
 }
 
-/* For back/abort buttons that should stay on the left */
-.screen-header-left {
-  align-self: flex-start;
+.mt-lg {
+  margin-top: 1.25rem;
 }
 
-/* Keep cards from stretching too wide when centered */
-.card-narrow {
-  width: 100%;
-  max-width: 400px;
-}
-
-@media (max-width: 400px) {
-  .app > div {
-    padding: 1rem;
-  }
-}
+/* -----------------------------
+   Role card (flip)
+------------------------------ */
 
 .role-card-wrapper {
   margin-top: 1rem;
@@ -277,7 +399,6 @@ select:focus {
   transition: transform 0.6s ease;
 }
 
-/* flipped state */
 .role-card-inner--flipped {
   transform: rotateY(180deg);
 }
@@ -289,7 +410,7 @@ select:focus {
   min-height: 180px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* keeps button inside */
+  justify-content: space-between;
   gap: 1rem;
   backface-visibility: hidden;
   border-radius: 1.25rem;
@@ -301,7 +422,6 @@ select:focus {
   transform: rotateY(180deg);
 }
 
-/* Typography */
 .role-card-title {
   font-weight: 600;
   font-size: 1.05rem;
@@ -330,10 +450,18 @@ select:focus {
   margin-top: 0.1rem;
 }
 
-/* ensure the button stretches nicely */
 .role-card-face .btn-primary,
 .role-card-face .btn-secondary {
   align-self: stretch;
+}
+
+/* -----------------------------
+   Misc UI bits
+------------------------------ */
+
+.hint {
+  font-size: 0.85rem;
+  color: #9ca3af;
 }
 
 .rules-list {
@@ -347,6 +475,19 @@ select:focus {
   margin-top: 0.35rem;
 }
 
+/* Divider (restored) */
+.divider {
+  height: 1px;
+  margin: 1rem 0;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+/* QR */
 .qr-wrapper {
   display: inline-flex;
   padding: 0.9rem;
@@ -367,6 +508,81 @@ select:focus {
   word-break: break-all;
 }
 
+/* Player list (general) */
+.player-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.3rem 0 0;
+}
+
+.player-list li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.player-list li:last-child {
+  border-bottom: none;
+}
+
+/* Player name chips on the reveal screen (restored) */
+.player-chip {
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.player-chip-active {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5);
+}
+
+.player-chip-done {
+  background: rgba(15, 23, 42, 0.7);
+  color: #6b7280;
+  border-style: dashed;
+  cursor: default;
+}
+
+/* Alerts */
+.alert {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.7);
+  color: #fee2e2;
+}
+
+.alert-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.alert-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+/* -----------------------------
+   Home screen helpers (restored)
+------------------------------ */
+
 .home-header {
   display: flex;
   justify-content: space-between;
@@ -382,27 +598,6 @@ select:focus {
   margin-top: 0;
   color: #e5e7eb;
   font-size: 0.95rem;
-}
-
-.icon-button-share {
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.9);
-  padding: 0.45rem 0.55rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #e5e7eb;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.icon-button-share:hover {
-  border-color: #38bdf8;
-  background: rgba(15, 23, 42, 1);
-  color: #f9fafb;
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
 }
 
 .home-bottom-row {
@@ -426,130 +621,146 @@ select:focus {
   gap: 0.8rem;
 }
 
-.btn-outline {
+/* Share icon button (restored) */
+.icon-button-share {
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: transparent;
-  color: #fff;
-  padding: 0.8rem 1.6rem;
-  font-weight: 600;
-}
-
-.form-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.btn-full {
-  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0.45rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  color: #e5e7eb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.form-card {
+.icon-button-share:hover {
+  border-color: #38bdf8;
+  background: rgba(15, 23, 42, 1);
+  color: #f9fafb;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+
+/* -----------------------------
+   Manage Categories word list styles
+------------------------------ */
+
+/* A) Your current "bullet list + delete button" version */
+.word-list {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.word-list li {
   display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.btn-full {
-  width: 100%;
-  justify-content: center;
-}
-
-.divider {
-  height: 1px;
-  margin: 1rem 0;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.03),
-    rgba(255, 255, 255, 0.14),
-    rgba(255, 255, 255, 0.03)
-  );
-}
-
-.player-list {
-  list-style: none;
-  padding-left: 0;
-  margin: 0.3rem 0 0;
-}
-
-.player-list li {
-  padding: 0.3rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.player-list li:last-child {
-  border-bottom: none;
-}
-
-/* --- Minimal iOS PWA input / layout fixes --- */
-
-html,
-body {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-  -webkit-text-size-adjust: 100%;
-}
-
-/* Keep things boring & reliable around form fields */
-input,
-textarea,
-select {
-  font-size: 16px;                /* avoids auto-zoom weirdness */
-  -webkit-user-select: text;
-  -webkit-touch-callout: default;
-  pointer-events: auto !important; 
-  touch-action: manipulation !important;  
-}
-
-label {
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-.alert {
-  width: 100%;
-  margin-top: 0.75rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: 0.75rem;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.alert-error {
-  background: rgba(239, 68, 68, 0.15);   /* red-500-ish */
-  border: 1px solid rgba(248, 113, 113, 0.7);
-  color: #fee2e2;
-}
-
-.alert-icon {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.alert-close {
+.word-list li button {
   margin-left: auto;
-  background: none;
-  border: none;
-  color: inherit;
+}
+
+/* B) Restored "row list" version (in case your JSX uses word-row) */
+.word-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.word-row span {
+  font-size: 0.95rem;
+}
+
+.word-empty {
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 400px) {
+  .app {
+    padding: 1rem;
+  }
+}
+
+/* iOS-style toggle switch */
+.toggle-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.toggle-title {
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.toggle-subtitle {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.2;
+}
+
+.switch {
+  position: relative;
+  width: 52px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
   cursor: pointer;
-  font-size: 1rem;
+  background: rgba(148, 163, 184, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  transition: 0.2s;
+  border-radius: 999px;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  height: 26px;
+  width: 26px;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f9fafb;
+  transition: 0.2s;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.switch input:checked + .slider {
+  background: linear-gradient(135deg, #22c55e, #22d3ee);
+  border-color: rgba(34, 211, 238, 0.55);
+}
+
+.switch input:checked + .slider::before {
+  transform: translate(20px, -50%);
+}
+
+.switch input:focus-visible + .slider {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
 }

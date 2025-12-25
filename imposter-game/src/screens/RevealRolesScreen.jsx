@@ -10,6 +10,7 @@ export default function RevealRolesScreen({
   const [activePlayer, setActivePlayer] = useState(null); // 1-based player number
   const [roleVisible, setRoleVisible] = useState(false);
   const [revealedPlayers, setRevealedPlayers] = useState([]); // array of player numbers
+  const [allRevealed, setAllRevealed] = useState(false);
 
   const { playerCount, playerNames } = game;
   const players = Array.from({ length: playerCount }, (_, i) => i + 1);
@@ -30,9 +31,9 @@ export default function RevealRolesScreen({
       if (prev.includes(activePlayer)) return prev;
       const next = [...prev, activePlayer];
 
-      // if everyone has now seen their role, move on
+      // if everyone has now seen their role, stop auto-advancing
       if (next.length === playerCount) {
-        onAllDone();
+        setAllRevealed(true);
       }
 
       return next;
@@ -92,6 +93,14 @@ export default function RevealRolesScreen({
           );
         })}
       </div>
+
+      {allRevealed && (
+        <div style={{ marginTop: "1rem" }}>
+          <button className="btn-primary" onClick={onAllDone}>
+            Continue to discussion
+          </button>
+        </div>
+      )}
 
       {activePlayer && (
         <div style={{ marginTop: "1rem" }}>

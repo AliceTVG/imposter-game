@@ -1,4 +1,4 @@
-export default function PlayScreen({ onReveal, onAbort }) {
+export default function PlayScreen({ onReveal, onAbort, onBackToRoles }) {
   return (
     <div className="screen-centered">
       <button className="btn-text screen-header-left" onClick={onAbort}>
@@ -17,9 +17,17 @@ export default function PlayScreen({ onReveal, onAbort }) {
           below.
         </p>
 
-        <button className="btn-primary mt-lg" onClick={onReveal}>
-          Reveal result
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {onBackToRoles && (
+            <button className="btn-secondary" onClick={onBackToRoles}>
+              View roles again
+            </button>
+          )}
+
+          <button className="btn-primary" onClick={onReveal}>
+            Reveal result
+          </button>
+        </div>
       </div>
     </div>
   );

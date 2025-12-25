@@ -104,8 +104,8 @@ export default function SetupGameScreen({ categories, onBack, onStart }) {
   };
 
   return (
-    <div>
-      <button className="btn-text" onClick={onBack}>
+    <div className="screen-container-without-restrictions">
+      <button className="btn-text screen-header-left" onClick={onBack}>
         ← Back
       </button>
       <h2>Game Setup</h2>

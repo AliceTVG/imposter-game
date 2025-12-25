@@ -1,11 +1,37 @@
 import { supabase } from "./supabaseClient";
 
+// --- Name safety / uniqueness ---
+const MAX_NAME_LEN = 18;
+const BANNED_SUBSTRINGS = [
+  // Keep this short + obvious for now. You can expand later.
+  "nigger",
+  "faggot",
+  "tranny",
+  "kike",
+  "spic",
+  "chink",
+  "retard",
+];
+
 function ensureSupabase() {
   if (!supabase) {
     throw new Error(
       "Supabase is not configured. Multi-device mode is unavailable."
     );
   }
+}
+
+function sanitizeName(raw) {
+  const trimmed = (raw ?? "").toString().trim();
+  const squashed = trimmed.replace(/\s+/g, " ");
+  // eslint-disable-next-line no-control-regex
+  const cleaned = squashed.replace(/[\x00-\x1F\x7F]/g, "");
+  return cleaned.slice(0, MAX_NAME_LEN);
+}
+
+function isNameAllowed(name) {
+  const lower = name.toLowerCase();
+  return !BANNED_SUBSTRINGS.some((b) => lower.includes(b));
 }
 
 function generateGameCode(length = 6) {
@@ -18,11 +44,11 @@ function generateGameCode(length = 6) {
 }
 
 // Create a new game lobby with a unique code
-export async function createGameLobby({ 
-    categoryId,
-    categoryName,
-    categoryWords,
-    forceSingleImposter = false,
+export async function createGameLobby({
+  categoryId,
+  categoryName,
+  categoryWords,
+  forceSingleImposter = false,
 }) {
   ensureSupabase();
   let attempts = 0;
@@ -63,10 +89,15 @@ export async function createGameLobby({
   throw new Error("Could not create game lobby after several attempts.");
 }
 
-// Add a player to a game by code
+// Add a player to a game by code (enforces unique, sanitized names)
 export async function joinGame({ code, name }) {
+  ensureSupabase();
   const upper = code.trim().toUpperCase();
-  const trimmedName = name.trim();
+  const safeName = sanitizeName(name);
+
+  if (!safeName) throw new Error("Please enter a name.");
+  if (!isNameAllowed(safeName))
+    throw new Error("That name isn't allowed. Please choose another.");
 
   const { data: game, error: gameError } = await supabase
     .from("games")
@@ -79,12 +110,35 @@ export async function joinGame({ code, name }) {
     throw gameError;
   }
 
+  // Reject duplicate names within the lobby (case-insensitive)
+  const { data: existingPlayers, error: existingError } = await supabase
+    .from("players")
+    .select("name")
+    .eq("game_id", game.id);
+
+  if (existingError) {
+    console.error("joinGame - existingError", existingError);
+    throw existingError;
+  }
+
+  const taken = new Set(
+    (existingPlayers || []).map((p) => (p.name ?? "").toLowerCase())
+  );
+
+  if (taken.has(safeName.toLowerCase())) {
+    throw new Error("That name is already taken in this lobby. Please choose another.");
+  }
+
+  const finalName = safeName;
+
+
   const { data: player, error: playerError } = await supabase
     .from("players")
     .insert({
       game_id: game.id,
-      name: trimmedName,
-      ready_for_next_round: true, // ready for the first / current round
+      name: finalName,
+      ready_for_next_round: true,
+      last_seen_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -99,6 +153,7 @@ export async function joinGame({ code, name }) {
 
 // Set which player is the host for a game
 export async function setGameHost(gameId, playerId) {
+  ensureSupabase();
   const { data, error } = await supabase
     .from("games")
     .update({ host_player_id: playerId })
@@ -110,15 +165,18 @@ export async function setGameHost(gameId, playerId) {
     console.error("setGameHost error", error);
     throw error;
   }
-
   return data;
 }
 
 // Mark a player as ready / not ready for the next round
 export async function setPlayerReady(playerId, ready) {
+  ensureSupabase();
   const { data, error } = await supabase
     .from("players")
-    .update({ ready_for_next_round: ready })
+    .update({
+      ready_for_next_round: ready,
+      last_seen_at: new Date().toISOString(),
+    })
     .eq("id", playerId)
     .select()
     .single();
@@ -130,12 +188,78 @@ export async function setPlayerReady(playerId, ready) {
   return data;
 }
 
-// Remove a player completely (used when someone quits to menu)
+// Host can change category without changing room/code
+export async function updateGameCategory(code, { categoryId, categoryName, categoryWords }) {
+  ensureSupabase();
+  const upper = code.trim().toUpperCase();
+
+  const { data, error } = await supabase
+    .from("games")
+    .update({
+      category_id: categoryId,
+      category_name: categoryName,
+      category_words: categoryWords,
+    })
+    .eq("code", upper)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("updateGameCategory error", error);
+    throw error;
+  }
+  return data;
+}
+
+// Host kick / remove a player
+export async function kickPlayer(playerId) {
+  ensureSupabase();
+  if (!playerId) return;
+  const { error } = await supabase.from("players").delete().eq("id", playerId);
+  if (error) {
+    console.error("kickPlayer error", error);
+    throw error;
+  }
+}
+
+// Heartbeat: keep an active player from being pruned
+export async function touchPlayer(playerId) {
+  ensureSupabase();
+  if (!playerId) return;
+  const { error } = await supabase
+    .from("players")
+    .update({ last_seen_at: new Date().toISOString() })
+    .eq("id", playerId);
+  if (error) {
+    console.error("touchPlayer error", error);
+    throw error;
+  }
+}
+
+// Host cleanup: remove inactive players
+export async function pruneInactivePlayers(gameId, timeoutSeconds = 120) {
+  ensureSupabase();
+  if (!gameId) return;
+  const cutoff = new Date(Date.now() - timeoutSeconds * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("players")
+    .delete()
+    .eq("game_id", gameId)
+    .or(`last_seen_at.lt.${cutoff},last_seen_at.is.null`);
+
+  if (error) {
+    console.error("pruneInactivePlayers error", error);
+    throw error;
+  }
+}
+
+// Remove a player completely (used when someone quits)
 // If they were the host, promote another player to host.
 export async function leaveGame(playerId) {
+  ensureSupabase();
   if (!playerId) return;
 
-  // Get the player so we know which game they're in
   const { data: player, error: playerError } = await supabase
     .from("players")
     .select("*")
@@ -160,7 +284,6 @@ export async function leaveGame(playerId) {
     throw gameError;
   }
 
-  // Delete the player
   const { error: deleteError } = await supabase
     .from("players")
     .delete()
@@ -171,12 +294,8 @@ export async function leaveGame(playerId) {
     throw deleteError;
   }
 
-  // If they weren't the host, we're done
-  if (game.host_player_id !== playerId) {
-    return;
-  }
+  if (game.host_player_id !== playerId) return;
 
-  // They *were* the host. Find remaining players and promote one.
   const { data: remaining, error: remainingError } = await supabase
     .from("players")
     .select("*")
@@ -188,7 +307,6 @@ export async function leaveGame(playerId) {
   }
 
   if (!remaining || remaining.length === 0) {
-    // No one left, clear host
     const { error: clearError } = await supabase
       .from("games")
       .update({ host_player_id: null })
@@ -201,7 +319,6 @@ export async function leaveGame(playerId) {
     return;
   }
 
-  // Pick a new host at random from the remaining players
   const idx = Math.floor(Math.random() * remaining.length);
   const newHost = remaining[idx];
 
@@ -218,6 +335,7 @@ export async function leaveGame(playerId) {
 
 // Fetch a game and its players by lobby code
 export async function fetchLobbyByCode(code) {
+  ensureSupabase();
   const upper = code.trim().toUpperCase();
 
   const { data: game, error: gameError } = await supabase
@@ -247,6 +365,7 @@ export async function fetchLobbyByCode(code) {
 
 // Mark a game as started (new round); also clear any previous reveal
 export async function startGame(code) {
+  ensureSupabase();
   const upper = code.trim().toUpperCase();
   const { data, error } = await supabase
     .from("games")
@@ -268,14 +387,29 @@ export async function startGame(code) {
 // Mark a game as revealed so all clients can move to the result screen
 // and clear everyone’s ready flag for the next round.
 export async function revealGame(code) {
+  ensureSupabase();
   const upper = code.trim().toUpperCase();
   const now = new Date().toISOString();
 
+  // fetch game first to ensure a round has started
+  const { data: existing, error: fetchError } = await supabase
+    .from("games")
+    .select("id, started_at")
+    .eq("code", upper)
+    .single();
+
+  if (fetchError) {
+    console.error("revealGame - fetchError", fetchError);
+    throw fetchError;
+  }
+
+  if (!existing?.started_at) {
+    throw new Error("You can't reveal results before a round has started.");
+  }
+
   const { data: game, error: gameError } = await supabase
     .from("games")
-    .update({
-      revealed_at: now,
-    })
+    .update({ revealed_at: now })
     .eq("code", upper)
     .select()
     .single();
@@ -298,8 +432,10 @@ export async function revealGame(code) {
   return game;
 }
 
+
 // Optional helper for debugging
 export async function listGamesByCategory(categoryId) {
+  ensureSupabase();
   const { data, error } = await supabase
     .from("games")
     .select("*")

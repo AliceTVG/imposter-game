@@ -120,10 +120,11 @@ export default function ManageCategoriesScreen({
   };
 
   return (
-    <div>
-      <button className="btn-text" onClick={onBack}>
+    <div className="screen-container-without-restrictions">
+      <button className="btn-text screen-header-left" onClick={onBack}>
         ← Back
       </button>
+      
       <h2>Manage Categories</h2>
 
       {error && (
