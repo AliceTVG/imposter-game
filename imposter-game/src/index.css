@@ -764,3 +764,435 @@ select:focus {
 .switch input:focus-visible + .slider {
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
 }
+
+/* --- Click-to-kick player pills --- */
+.player-pill-clickable {
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, outline 120ms ease;
+}
+.player-pill-clickable:hover {
+  transform: translateY(-1px);
+  outline: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* --- TV discussion layout --- */
+.tv-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.8rem 0 1rem 0;
+}
+.tv-status-pill {
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0.95;
+  font-size: 0.95rem;
+}
+.tv-discussion-layout {
+  display: grid;
+  grid-template-columns: 1.65fr 0.85fr;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .tv-discussion-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tv-chat-main {
+  padding: 1rem;
+}
+.tv-chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.tv-controls {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tv-next-speaker {
+  margin-top: 0.9rem;
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tv-next-label {
+  opacity: 0.75;
+  font-weight: 700;
+}
+.tv-next-name {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.tv-chat-scroll {
+  margin-top: 0.9rem;
+  height: 420px;
+  overflow: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* TV chat bubbles */
+.tv-bubble-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 92%;
+}
+.tv-bubble-row.them { align-self: flex-start; }
+.tv-bubble-row.me,
+.tv-bubble-row.host { align-self: flex-end; }
+
+.tv-bubble-meta {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+.tv-bubble-name {
+  font-weight: 800;
+}
+.tv-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 0.9;
+}
+
+.tv-bubble {
+  border-radius: 18px;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  line-height: 1.25;
+}
+.tv-bubble.host {
+  background: rgba(255, 255, 255, 0.14);
+}
+.tv-bubble.me {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tv-chat-input {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+}
+
+/* Side panel */
+.tv-side-panel {
+  padding: 1rem;
+  min-height: 640px;
+}
+
+/* Voting side UI */
+.tv-vote-summary {
+  display: grid;
+  place-items: center;
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.tv-vote-big {
+  font-size: 2.2rem;
+  font-weight: 900;
+}
+.tv-vote-sub {
+  opacity: 0.8;
+  margin-top: 0.2rem;
+}
+
+.tv-countdown {
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  display: grid;
+  place-items: center;
+}
+.tv-countdown-num {
+  font-size: 2.1rem;
+  font-weight: 900;
+}
+.tv-countdown-label {
+  opacity: 0.8;
+  margin-top: 0.2rem;
+}
+
+/* Bar chart */
+.tv-bar-chart {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.tv-bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 36px;
+  gap: 0.6rem;
+  align-items: center;
+}
+.tv-bar-name {
+  font-weight: 800;
+  opacity: 0.9;
+}
+.tv-bar-track {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.tv-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.tv-bar-count {
+  text-align: right;
+  font-weight: 900;
+  opacity: 0.9;
+}
+
+/* --- Player chat room (phone) --- */
+.chat-room {
+  margin-top: 1rem;
+  border-radius: 18px;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+.chat-room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.chat-room-sub {
+  opacity: 0.75;
+  font-size: 0.95rem;
+}
+.chat-room-scroll {
+  margin-top: 0.85rem;
+  height: 300px;
+  overflow: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.chat-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 88%;
+}
+.chat-line.them { align-self: flex-start; }
+.chat-line.me,
+.chat-line.host { align-self: flex-end; }
+
+.chat-meta {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  opacity: 0.88;
+  font-size: 0.9rem;
+}
+.chat-name { font-weight: 800; }
+
+.chat-badge {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 0.9;
+}
+
+.chat-bubble {
+  border-radius: 18px;
+  padding: 0.65rem 0.8rem;
+  background: rgba(255, 255, 255, 0.08);
+  line-height: 1.25;
+}
+.chat-bubble.me { background: rgba(255, 255, 255, 0.12); }
+.chat-bubble.host { background: rgba(255, 255, 255, 0.14); }
+
+.chat-compose {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+}
+
+/* Voting section */
+.vote-header {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+.vote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+.btn-vote.selected {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+}
+
+/* Next speaker box on phone */
+.next-speaker-box {
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.next-speaker-label {
+  opacity: 0.75;
+  font-weight: 700;
+}
+.next-speaker-name {
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+/* --- Side panel tabs (TV host discussion) --- */
+.tv-side-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+.tv-side-tab {
+  border-radius: 999px;
+  padding: 0.55rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 800;
+  opacity: 0.9;
+  transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+.tv-side-tab:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 1;
+}
+.tv-side-tab.active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+  opacity: 1;
+}
+
+/* --- BIG REVEAL --- */
+.big-reveal-wrap {
+  display: grid;
+  place-items: center;
+  padding-top: 5rem;
+}
+
+.big-reveal {
+  width: min(1100px, 92vw);
+  border-radius: 26px;
+  padding: 1.3rem 1.3rem 1.15rem;
+  background: radial-gradient(900px 300px at 50% 0%, rgba(255,255,255,0.14), rgba(255,255,255,0.05) 55%, rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 20px 80px rgba(0,0,0,0.35);
+}
+
+.big-reveal-top {
+  text-align: center;
+  padding: 0.4rem 0.4rem 0.9rem;
+}
+
+.big-reveal-kicker {
+  letter-spacing: 0.22em;
+  font-weight: 900;
+  opacity: 0.8;
+  font-size: 0.85rem;
+}
+
+.big-reveal-title {
+  margin-top: 0.35rem;
+  font-size: clamp(2rem, 3.6vw, 3.3rem);
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.big-reveal-sub {
+  margin-top: 0.55rem;
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+.big-reveal-word {
+  font-weight: 950;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.big-reveal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.9rem;
+}
+.big-reveal-grid.one {
+  grid-template-columns: 1fr;
+}
+
+.big-reveal-card {
+  padding: 1rem;
+  border-radius: 22px;
+}
+
+.big-reveal-people {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.big-reveal-name {
+  font-size: 1.4rem;
+  font-weight: 950;
+  padding: 0.6rem 0.85rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.big-reveal-actions {
+  margin-top: 1rem;
+  display: grid;
+  place-items: center;
+  padding-top: 0.2rem;
+}
+
+/* Make the reveal feel centered on phones */
+.big-reveal-mobile {
+  width: min(520px, 92vw);
+}

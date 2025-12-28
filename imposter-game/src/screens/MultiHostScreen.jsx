@@ -41,6 +41,7 @@ export default function MultiHostScreen({ categories, onBack }) {
   const [revealing, setRevealing] = useState(false);
 
   const [forceSingleImposter, setForceSingleImposter] = useState(false);
+  const [requireChatClue, setRequireChatClue] = useState(false)
 
   const [error, setError] = useState("");
 
@@ -79,6 +80,7 @@ export default function MultiHostScreen({ categories, onBack }) {
     setStarting(false);
     setRevealing(false);
     setForceSingleImposter(false);
+    setRequireChatClue(false);
     setError("");
   };
 
@@ -111,6 +113,7 @@ export default function MultiHostScreen({ categories, onBack }) {
         categoryName: selectedCategory.name,
         categoryWords: selectedCategory.words,
         forceSingleImposter,
+        requireChatClue,
       });
 
       const { game, player } = await joinGame({
@@ -369,6 +372,27 @@ export default function MultiHostScreen({ categories, onBack }) {
                 </label>
             </div>
           </div>
+          <div className="field">
+            <span>Chat settings</span>
+
+            <div className="toggle-row">
+              <div className="toggle-text">
+                <div className="toggle-title">Require chat?</div>
+                  <div className="toggle-subtitle">
+                    If on, everyone must send at least one chat message during discussion before the host can reveal results.
+                  </div>
+              </div>
+              <label className="switch" aria-label="Require chat clue">
+                <input
+                  type="checkbox"
+                  checked={requireChatClue}
+                  onChange={(e) => setRequireChatClue(e.target.checked)}
+                />
+                <span className="slider" />
+              </label>
+            </div>
+          </div>
+
 
           <button
             className="btn-primary btn-full mt-lg"

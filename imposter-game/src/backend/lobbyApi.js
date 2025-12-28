@@ -1,4 +1,6 @@
 import { supabase } from "./supabaseClient";
+// Engine utilities live alongside this file in this repo.
+import { pickFirstSpeakerForRound } from "../game/multiDeviceEngine";
 
 // --- Name safety / uniqueness ---
 const MAX_NAME_LEN = 18;
@@ -49,6 +51,7 @@ export async function createGameLobby({
   categoryName,
   categoryWords,
   forceSingleImposter = false,
+  requireChatClue = false,
 }) {
   ensureSupabase();
   let attempts = 0;
@@ -63,8 +66,10 @@ export async function createGameLobby({
         category_name: categoryName,
         category_words: categoryWords,
         force_single_imposter: forceSingleImposter,
+        require_chat_clue: requireChatClue,
         started_at: null,
         revealed_at: null,
+        first_speaker_player_id: null,
         host_player_id: null,
       })
       .select()
@@ -87,6 +92,95 @@ export async function createGameLobby({
   }
 
   throw new Error("Could not create game lobby after several attempts.");
+}
+
+// Chat: add a message for the current round
+export async function sendChatMessage({ gameId, playerId, name, text, roundKey }) {
+  ensureSupabase();
+  const body = (text ?? "").toString().trim();
+  if (!body) throw new Error("Message can't be empty.");
+
+  const payload = {
+    game_id: gameId,
+    round_key: roundKey || null,
+    player_id: playerId || null,
+    name: (name ?? "").toString().slice(0, MAX_NAME_LEN),
+    message: body.slice(0, 200),
+  };
+
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("sendChatMessage error", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function fetchChatMessages({ gameId, roundKey, limit = 80 }) {
+  ensureSupabase();
+  let q = supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("game_id", gameId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (roundKey) q = q.eq("round_key", roundKey);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error("fetchChatMessages error", error);
+    throw error;
+  }
+  return data || [];
+}
+
+// Voting: upsert your vote for this round
+export async function castVote({ gameId, roundKey, voterPlayerId, targetPlayerId }) {
+  ensureSupabase();
+  if (!gameId || !roundKey || !voterPlayerId || !targetPlayerId) {
+    throw new Error("Missing vote info");
+  }
+
+  const { data, error } = await supabase
+    .from("votes")
+    .upsert(
+      {
+        game_id: gameId,
+        round_key: roundKey,
+        voter_player_id: voterPlayerId,
+        target_player_id: targetPlayerId,
+      },
+      { onConflict: "game_id,round_key,voter_player_id" }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error("castVote error", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function fetchVotes({ gameId, roundKey }) {
+  ensureSupabase();
+  const { data, error } = await supabase
+    .from("votes")
+    .select("*")
+    .eq("game_id", gameId)
+    .eq("round_key", roundKey);
+
+  if (error) {
+    console.error("fetchVotes error", error);
+    throw error;
+  }
+  return data || [];
 }
 
 // Add a player to a game by code (enforces unique, sanitized names)
@@ -130,7 +224,6 @@ export async function joinGame({ code, name }) {
   }
 
   const finalName = safeName;
-
 
   const { data: player, error: playerError } = await supabase
     .from("players")
@@ -367,13 +460,49 @@ export async function fetchLobbyByCode(code) {
 export async function startGame(code) {
   ensureSupabase();
   const upper = code.trim().toUpperCase();
+
+  // Fetch game + players first so we can deterministically pick a first speaker.
+  const { data: existing, error: fetchError } = await supabase
+    .from("games")
+    .select("id, code, force_single_imposter")
+    .eq("code", upper)
+    .single();
+
+  if (fetchError) {
+    console.error("startGame - fetch game error", fetchError);
+    throw fetchError;
+  }
+
+  const { data: players, error: playersError } = await supabase
+    .from("players")
+    .select("id, name, ready_for_next_round")
+    .eq("game_id", existing.id)
+    .order("joined_at", { ascending: true });
+
+  if (playersError) {
+    console.error("startGame - fetch players error", playersError);
+    throw playersError;
+  }
+
+  const startedAt = new Date().toISOString();
+  const readyPlayers = (players || []).filter((p) => p.ready_for_next_round);
+
+  const first = pickFirstSpeakerForRound({
+    code: existing.code,
+    players: readyPlayers,
+    roundKey: startedAt,
+    minImposters: 1,
+    maxImposters: existing.force_single_imposter ? 1 : undefined,
+  });
+
   const { data, error } = await supabase
     .from("games")
     .update({
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
       revealed_at: null,
+      first_speaker_player_id: first?.id || null,
     })
-    .eq("code", upper)
+    .eq("id", existing.id)
     .select()
     .single();
 
@@ -431,7 +560,6 @@ export async function revealGame(code) {
 
   return game;
 }
-
 
 // Optional helper for debugging
 export async function listGamesByCategory(categoryId) {

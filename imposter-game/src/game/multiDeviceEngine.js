@@ -75,6 +75,48 @@ export function computeMultiDeviceOutcome({
 }
 
 /**
+ * Deterministically pick who should speak first for a round.
+ *
+ * We reuse the same ranking logic used for imposters. Since imposters are
+ * chosen as the *lowest* ranked players, we pick the first speaker from the
+ * *non-imposter* slice. That makes it "weighted" away from imposters without
+ * needing to know roles on the server.
+ */
+export function pickFirstSpeakerForRound({
+  code,
+  players,
+  roundKey,
+  minImposters = 1,
+  maxImposters,
+}) {
+  const playerList = Array.isArray(players) ? players : [];
+  const n = playerList.length;
+  if (n === 0) return null;
+  if (n === 1) return playerList[0];
+
+  const seedBase = roundKey ? `${code}|${roundKey}` : code;
+
+  // mirror imposter target calculation
+  let target = Math.round(n * 0.25);
+  if (target < minImposters) target = minImposters;
+  const hardMax = maxImposters ?? Math.max(1, Math.floor(n / 3));
+  if (target > hardMax) target = hardMax;
+  if (target >= n) target = n - 1;
+
+  const ranked = playerList
+    .map((p) => ({
+      ...p,
+      key: hashString(`${seedBase}|${p.name ?? ""}`),
+    }))
+    .sort((a, b) => a.key - b.key);
+
+  // Choose the lowest-hash *non-imposter*.
+  const nonImposterSlice = ranked.slice(target);
+  if (nonImposterSlice.length === 0) return ranked[0];
+  return nonImposterSlice[0];
+}
+
+/**
  * Convenience helper: given the shared outcome + your player id,
  * return { word, isImposter } for this device.
  */
