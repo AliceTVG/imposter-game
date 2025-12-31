@@ -1,5 +1,5 @@
 // src/screens/MultiHostDisplayScreen.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import { supabase } from "../backend/supabaseClient";
 import {
@@ -116,6 +116,8 @@ export default function MultiHostDisplayScreen({ categories, onBack }) {
   const [chatText, setChatText] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
   const [votes, setVotes] = useState([]);
+  const chatScrollRef = useRef(null);
+  const isChatPinnedRef = useRef(true);
 
   // Voting countdown (30s)
   const [secondsLeft, setSecondsLeft] = useState(null);
@@ -123,7 +125,7 @@ export default function MultiHostDisplayScreen({ categories, onBack }) {
   // Right panel tab
   const [sideTab, setSideTab] = useState("players"); // players | join | stage
 
-  // ✅ Lock round roster at round start (fixes "Unknown imposter" + caught/escaped mismatch)
+  // Lock round roster at round start (fixes "Unknown imposter" + caught/escaped mismatch)
   const [roundPlayerIds, setRoundPlayerIds] = useState([]);
 
   const selectedCategory = categories?.[categoryIndex] ?? categories?.[0] ?? null;
@@ -202,6 +204,13 @@ export default function MultiHostDisplayScreen({ categories, onBack }) {
     () => findSystemTimestamp(chatMessages, SYS.VOTING_START),
     [chatMessages]
   );
+
+  const updateChatPinned = () => {
+  const el = chatScrollRef.current;
+  if (!el) return;
+  isChatPinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+};
+
 
   // ✅ Outcome computed from locked round roster (fixes imposter unknown)
   const outcome = useMemo(() => {
@@ -561,6 +570,19 @@ export default function MultiHostDisplayScreen({ categories, onBack }) {
       clearInterval(id);
     };
   }, [phase, game, revealedAtSeen]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    if (!isChatPinnedRef.current) return;
+
+    requestAnimationFrame(() => {
+      const el2 = chatScrollRef.current;
+      if (el2) el2.scrollTop = el2.scrollHeight;
+    });
+  }, [nonSystemChat.length]);
+
 
   // ---------- RENDER ----------
 
@@ -935,7 +957,7 @@ export default function MultiHostDisplayScreen({ categories, onBack }) {
             </div>
 
             {/* Chat messages */}
-            <div className="tv-chat-scroll">
+            <div className="tv-chat-scroll" ref={chatScrollRef} onScroll={updateChatPinned}>
               {nonSystemChat.map((m) => {
                 const isHost = (m.name || "").toUpperCase() === "HOST";
                 const bubbleClass = isHost ? "host" : "them";

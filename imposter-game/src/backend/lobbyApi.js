@@ -7,12 +7,22 @@ const MAX_NAME_LEN = 18;
 const BANNED_SUBSTRINGS = [
   // Keep this short + obvious for now. You can expand later.
   "nigger",
+  "nigga",
   "faggot",
+  "fag",
   "tranny",
   "kike",
   "spic",
   "chink",
   "retard",
+  "spastic",
+  "spaz",
+  "dyke",
+  "coon",
+  "rape",
+  "rapist",
+  "pedophile",
+  "pedo",
 ];
 
 function ensureSupabase() {
@@ -31,9 +41,29 @@ function sanitizeName(raw) {
   return cleaned.slice(0, MAX_NAME_LEN);
 }
 
+function normalizeForModeration(s) {
+  return (s ?? "")
+    .toString()
+    .toLowerCase()
+    .replace(/[@]/g, "a")
+    .replace(/[0]/g, "o")
+    .replace(/[1!]/g, "i")
+    .replace(/[3]/g, "e")
+    .replace(/[4]/g, "a")
+    .replace(/[5$]/g, "s")
+    .replace(/[7]/g, "t")
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/(.)\1{2,}/g, "$1$1");
+}
+
 function isNameAllowed(name) {
-  const lower = name.toLowerCase();
-  return !BANNED_SUBSTRINGS.some((b) => lower.includes(b));
+  const norm = normalizeForModeration(name);
+  return !BANNED_SUBSTRINGS.some((b) => norm.includes(b));
+}
+
+function isTextAllowed(text) {
+  const norm = normalizeForModeration(text);
+  return !BANNED_SUBSTRINGS.some((b) => norm.includes(b));
 }
 
 function generateGameCode(length = 6) {
@@ -95,10 +125,24 @@ export async function createGameLobby({
 }
 
 // Chat: add a message for the current round
-export async function sendChatMessage({ gameId, playerId, name, text, roundKey }) {
+export async function sendChatMessage({
+  gameId,
+  playerId,
+  name,
+  text,
+  roundKey,
+}) {
   ensureSupabase();
   const body = (text ?? "").toString().trim();
   if (!body) throw new Error("Message can't be empty.");
+
+  if (body.length > 200) {
+    return { error: "Message too long" };
+  }
+
+  if (!isTextAllowed(body)) {
+    return { error: "Message not allowed" };
+  }
 
   const payload = {
     game_id: gameId,
@@ -140,32 +184,99 @@ export async function fetchChatMessages({ gameId, roundKey, limit = 80 }) {
   return data || [];
 }
 
-// Voting: upsert your vote for this round
-export async function castVote({ gameId, roundKey, voterPlayerId, targetPlayerId }) {
+/**
+ * Voting: MULTI-SELECT TOGGLE
+ *
+ * IMPORTANT: This requires the votes table uniqueness to be:
+ *   unique (game_id, round_key, voter_player_id, target_player_id)
+ *
+ * Behaviour:
+ * - If vote exists for (voter -> target) this round: delete it (toggle off)
+ * - Else insert it (toggle on) unless maxSelections would be exceeded
+ *
+ * Params:
+ * - maxSelections (optional): enforce cap per voter (e.g. Math.floor(players/2))
+ *
+ * Return:
+ * - { selected: boolean }
+ */
+export async function castVote({
+  gameId,
+  roundKey,
+  voterPlayerId,
+  targetPlayerId,
+  maxSelections,
+}) {
   ensureSupabase();
   if (!gameId || !roundKey || !voterPlayerId || !targetPlayerId) {
     throw new Error("Missing vote info");
   }
 
-  const { data, error } = await supabase
+  // 1) Check if this vote already exists -> toggle OFF
+  const { data: existing, error: existingErr } = await supabase
     .from("votes")
-    .upsert(
-      {
-        game_id: gameId,
-        round_key: roundKey,
-        voter_player_id: voterPlayerId,
-        target_player_id: targetPlayerId,
-      },
-      { onConflict: "game_id,round_key,voter_player_id" }
-    )
-    .select()
-    .single();
+    .select("id")
+    .eq("game_id", gameId)
+    .eq("round_key", roundKey)
+    .eq("voter_player_id", voterPlayerId)
+    .eq("target_player_id", targetPlayerId)
+    .limit(1);
 
-  if (error) {
-    console.error("castVote error", error);
-    throw error;
+  if (existingErr) {
+    console.error("castVote existing check error", existingErr);
+    throw existingErr;
   }
-  return data;
+
+  if (existing && existing.length > 0) {
+    const { error: delErr } = await supabase
+      .from("votes")
+      .delete()
+      .eq("game_id", gameId)
+      .eq("round_key", roundKey)
+      .eq("voter_player_id", voterPlayerId)
+      .eq("target_player_id", targetPlayerId);
+
+    if (delErr) {
+      console.error("castVote delete error", delErr);
+      throw delErr;
+    }
+
+    return { selected: false };
+  }
+
+  // 2) Enforce cap -> toggle ON
+  if (typeof maxSelections === "number") {
+    const { count, error: countErr } = await supabase
+      .from("votes")
+      .select("*", { count: "exact", head: true })
+      .eq("game_id", gameId)
+      .eq("round_key", roundKey)
+      .eq("voter_player_id", voterPlayerId);
+
+    if (countErr) {
+      console.error("castVote count error", countErr);
+      throw countErr;
+    }
+
+    if ((count || 0) >= maxSelections) {
+      throw new Error("Vote limit reached");
+    }
+  }
+
+  // 3) Insert the new selection
+  const { error: insErr } = await supabase.from("votes").insert({
+    game_id: gameId,
+    round_key: roundKey,
+    voter_player_id: voterPlayerId,
+    target_player_id: targetPlayerId,
+  });
+
+  if (insErr) {
+    console.error("castVote insert error", insErr);
+    throw insErr;
+  }
+
+  return { selected: true };
 }
 
 export async function fetchVotes({ gameId, roundKey }) {
@@ -220,7 +331,9 @@ export async function joinGame({ code, name }) {
   );
 
   if (taken.has(safeName.toLowerCase())) {
-    throw new Error("That name is already taken in this lobby. Please choose another.");
+    throw new Error(
+      "That name is already taken in this lobby. Please choose another."
+    );
   }
 
   const finalName = safeName;

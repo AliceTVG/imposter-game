@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   joinGame,
   fetchLobbyByCode,
@@ -96,8 +96,11 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
   const [sendingChat, setSendingChat] = useState(false);
 
   const [votes, setVotes] = useState([]);
-  const [myVoteTarget, setMyVoteTarget] = useState(null);
+  const [myVoteTargets, setMyVoteTargets] = useState([]); // ✅ multi select
   const [castingVote, setCastingVote] = useState(false);
+
+  const chatScrollRef = useRef(null);
+  const isChatPinnedRef = useRef(true);
 
   // voting countdown display
   const [secondsLeft, setSecondsLeft] = useState(null);
@@ -108,10 +111,15 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
     [joinedGame, chatMessages]
   );
 
-  const iAmHost = useMemo(() => {
-    if (!joinedGame || !player) return false;
-    return joinedGame.host_player_id === player.id;
-  }, [joinedGame, player]);
+  const nonSystemChat = useMemo(
+    () => chatMessages.filter((m) => !isSystemMsg(m)),
+    [chatMessages]
+  );
+
+  const votingStartAt = useMemo(
+    () => findSystemTimestamp(chatMessages, SYS.VOTING_START),
+    [chatMessages]
+  );
 
   const voteCounts = useMemo(() => {
     const counts = new Map();
@@ -129,52 +137,55 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
     return s;
   }, [chatMessages]);
 
-  const allPlayersMessaged = useMemo(() => {
-    if (!players?.length) return false;
-    return players.every((p) => chattedSet.has(p.id));
-  }, [players, chattedSet]);
+  const { currentId: nextSpeakerId, currentName: nextSpeakerName } = useMemo(() => {
+    return computeNextSpeaker({
+      players,
+      firstSpeakerId: joinedGame?.first_speaker_player_id,
+      chatMessages: nonSystemChat.filter(
+        (m) => (m?.name || "").toUpperCase() !== "HOST"
+      ),
+    });
+  }, [players, joinedGame?.first_speaker_player_id, nonSystemChat]);
+
+  const iAmHost = useMemo(() => {
+    if (!joinedGame?.host_player_id || !player?.id) return false;
+    return joinedGame.host_player_id === player.id;
+  }, [joinedGame?.host_player_id, player?.id]);
+
+  const requireMessages = !!joinedGame?.require_chat_clue;
 
   const iHaveMessaged = useMemo(() => {
     if (!player?.id) return false;
     return chattedSet.has(player.id);
   }, [player?.id, chattedSet]);
 
-  const nonSystemChat = useMemo(
-    () => chatMessages.filter((m) => !isSystemMsg(m)),
-    [chatMessages]
-  );
+  const allPlayersMessaged = useMemo(() => {
+    if (!players?.length) return false;
+    return players.every((p) => chattedSet.has(p.id));
+  }, [players, chattedSet]);
 
-  const { currentName: nextSpeakerName, currentId: nextSpeakerId } = useMemo(() => {
-    return computeNextSpeaker({
-      players,
-      firstSpeakerId: joinedGame?.first_speaker_player_id,
-      chatMessages: nonSystemChat.filter((m) => (m?.name || "").toUpperCase() !== "HOST"),
-    });
-  }, [players, joinedGame?.first_speaker_player_id, nonSystemChat]);
-
-  const votingStartAt = useMemo(
-    () => findSystemTimestamp(chatMessages, SYS.VOTING_START),
-    [chatMessages]
-  );
+  const updateChatPinned = () => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    isChatPinnedRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  };
 
   const hardResetToMenu = () => {
     setPhase("form");
     setJoinedGame(null);
     setPlayer(null);
     setPlayers([]);
-    setRoleData(null);
     setCategory(null);
+    setRoleData(null);
     setStartedAtSeen(null);
     setRevealedAtSeen(null);
-    setError("");
-
     setChatMessages([]);
-    setChatText("");
     setVotes([]);
-    setMyVoteTarget(null);
+    setMyVoteTargets([]);
+    setChatText("");
     setSecondsLeft(null);
-
-    onBack();
+    setError("");
   };
 
   const leaveCompletely = async () => {
@@ -199,7 +210,10 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
     setError("");
 
     try {
-      const { game, player } = await joinGame({ code: trimmedCode, name: trimmedName });
+      const { game, player } = await joinGame({
+        code: trimmedCode,
+        name: trimmedName,
+      });
       const { players: lobbyPlayers } = await fetchLobbyByCode(game.code);
 
       const localCat = categories.find((c) => c.id === game.category_id);
@@ -248,8 +262,10 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
       setVotes(vts || []);
 
       if (player?.id) {
-        const mine = (vts || []).find((v) => v.voter_player_id === player.id);
-        setMyVoteTarget(mine?.target_player_id ?? null);
+        const mine = (vts || [])
+          .filter((v) => v.voter_player_id === player.id)
+          .map((v) => v.target_player_id);
+        setMyVoteTargets(mine);
       }
     } catch (e) {
       console.error("refreshRoundData failed", e);
@@ -263,13 +279,19 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
 
     setSendingChat(true);
     try {
-      await sendChatMessage({
+      const res = await sendChatMessage({
         gameId: joinedGame.id,
         playerId: player.id,
         name: player.name,
         text,
         roundKey,
       });
+
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+
       setChatText("");
       await refreshRoundData(joinedGame);
     } catch (e) {
@@ -284,6 +306,24 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
     if (!joinedGame?.id || !roundKey || !player?.id) return;
     if (!targetPlayerId) return;
 
+    const maxSelections = Math.max(1, Math.floor((players?.length || 0) / 2));
+    const alreadySelected = myVoteTargets.includes(targetPlayerId);
+
+    if (!alreadySelected && myVoteTargets.length >= maxSelections) {
+      setError(
+        `You can only vote for up to ${maxSelections} player${
+          maxSelections === 1 ? "" : "s"
+        }.`
+      );
+      return;
+    }
+
+    const optimistic = alreadySelected
+      ? myVoteTargets.filter((id) => id !== targetPlayerId)
+      : [...myVoteTargets, targetPlayerId];
+
+    setMyVoteTargets(optimistic);
+
     setCastingVote(true);
     try {
       await castVote({
@@ -291,11 +331,12 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
         roundKey,
         voterPlayerId: player.id,
         targetPlayerId,
+        maxSelections,
       });
-      setMyVoteTarget(targetPlayerId);
       await refreshRoundData(joinedGame);
     } catch (e) {
       console.error(e);
+      await refreshRoundData(joinedGame);
       setError(e?.message || "Could not cast vote.");
     } finally {
       setCastingVote(false);
@@ -367,7 +408,7 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
 
           setChatMessages([]);
           setVotes([]);
-          setMyVoteTarget(null);
+          setMyVoteTargets([]);
           setSecondsLeft(null);
 
           setPhase("role");
@@ -446,6 +487,19 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
     };
   }, [phase, joinedGame, revealedAtSeen]);
 
+  // Auto-scroll to bottom only if user is already pinned at bottom
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    if (!isChatPinnedRef.current) return;
+
+    requestAnimationFrame(() => {
+      const el2 = chatScrollRef.current;
+      if (el2) el2.scrollTop = el2.scrollHeight;
+    });
+  }, [nonSystemChat.length]);
+
   // --- RENDER ---
 
   if (phase === "kicked") {
@@ -489,7 +543,11 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
 
           <div className="field">
             <span>Your name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alice" />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Alice"
+            />
           </div>
 
           <button className="btn-primary mt-lg" onClick={handleJoin} disabled={joining}>
@@ -603,8 +661,6 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
   }
 
   if (phase === "play" && category && roleData && joinedGame) {
-    const requireMessages = !!joinedGame.require_chat_clue;
-
     return (
       <div className="screen-centered">
         <button className="btn-text screen-header-left" onClick={leaveCompletely}>
@@ -637,7 +693,9 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
             <div className="card" style={{ marginTop: 12, opacity: 0.95 }}>
               <strong>Messages required</strong>
               <div style={{ marginTop: 6, opacity: 0.85 }}>
-                {allPlayersMessaged ? "✅ Everyone has sent a message." : "⏳ Waiting for everyone to message…"}
+                {allPlayersMessaged
+                  ? "✅ Everyone has sent a message."
+                  : "⏳ Waiting for everyone to message…"}
               </div>
               {!iHaveMessaged && (
                 <div style={{ marginTop: 6 }}>
@@ -660,7 +718,7 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
               </div>
             </div>
 
-            <div className="chat-room-scroll">
+            <div className="chat-room-scroll" ref={chatScrollRef} onScroll={updateChatPinned}>
               {nonSystemChat.map((m) => {
                 const isMe = player?.id && m.player_id === player.id;
                 const isHost = (m.name || "").toUpperCase() === "HOST";
@@ -692,55 +750,67 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
                 disabled={stage !== "discussion"}
                 title={stage !== "discussion" ? "Chat is locked during voting/results." : ""}
               />
-              <button className="btn-primary" onClick={handleSendChat} disabled={sendingChat || stage !== "discussion"}>
+              <button
+                className="btn-primary"
+                onClick={handleSendChat}
+                disabled={sendingChat || stage !== "discussion"}
+              >
                 {sendingChat ? "…" : "Send"}
               </button>
             </div>
           </div>
 
           {/* Voting */}
-          {stage === "voting" && (
-            <>
-              <div className="vote-header">
-                <div style={{ fontWeight: 800 }}>Vote now</div>
-                <div style={{ opacity: 0.85, fontSize: "0.95rem" }}>
-                  Time left: <strong>{secondsLeft ?? 30}s</strong>
-                </div>
-              </div>
+          {stage === "voting" &&
+            (() => {
+              const maxSelections = Math.max(1, Math.floor((players?.length || 0) / 2));
+              return (
+                <>
+                  <div className="vote-header">
+                    <div style={{ fontWeight: 800 }}>Vote now</div>
+                    <div style={{ opacity: 0.85, fontSize: "0.95rem" }}>
+                      Time left: <strong>{secondsLeft ?? 30}s</strong>
+                    </div>
+                  </div>
 
-              <div className="vote-grid">
-                {players
-                  .filter((p) => p.id !== player?.id)
-                  .map((p) => {
-                    const selected = myVoteTarget === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        className={`btn-secondary btn-vote ${selected ? "selected" : ""}`}
-                        onClick={() => handleVote(p.id)}
-                        disabled={castingVote}
-                      >
-                        <div style={{ fontWeight: 800 }}>{p.name}</div>
-                        <div style={{ opacity: 0.8, fontSize: "0.9rem" }}>
-                          {selected ? "Selected" : "Tap to vote"}
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
+                  <div className="vote-grid">
+                    {players
+                      .filter((p) => p.id !== player?.id)
+                      .map((p) => {
+                        const selected = myVoteTargets.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            className={`btn-secondary btn-vote ${selected ? "selected" : ""}`}
+                            onClick={() => handleVote(p.id)}
+                            disabled={castingVote || (!selected && myVoteTargets.length >= maxSelections)}
+                          >
+                            <div style={{ fontWeight: 800 }}>{p.name}</div>
+                            <div style={{ opacity: 0.8, fontSize: "0.9rem" }}>
+                              {selected ? "Selected (tap to unselect)" : "Tap to select"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
 
-              <div style={{ marginTop: 10, opacity: 0.85 }}>
-                {myVoteTarget ? "✅ Vote submitted." : "⏳ Submit your vote."}
-              </div>
-            </>
-          )}
+                  <div style={{ marginTop: 10, opacity: 0.85 }}>
+                    {myVoteTargets.length
+                      ? `✅ Selected ${myVoteTargets.length}/${maxSelections}.`
+                      : "⏳ Select at least one player."}
+                  </div>
+                </>
+              );
+            })()}
 
           {/* Vote results stage */}
           {stage === "revealVotes" && (
             <>
               <div className="vote-header" style={{ marginTop: 14 }}>
                 <div style={{ fontWeight: 800 }}>Vote results</div>
-                <div style={{ opacity: 0.85, fontSize: "0.95rem" }}>Waiting for the final reveal…</div>
+                <div style={{ opacity: 0.85, fontSize: "0.95rem" }}>
+                  Waiting for the final reveal…
+                </div>
               </div>
 
               <ul style={{ textAlign: "left", marginTop: 10 }}>
@@ -823,7 +893,7 @@ export default function MultiJoinScreen({ categories, onBack, initialCode = "" }
                 setRoleData(null);
                 setChatMessages([]);
                 setVotes([]);
-                setMyVoteTarget(null);
+                setMyVoteTargets([]);
                 setSecondsLeft(null);
               }}
             >
